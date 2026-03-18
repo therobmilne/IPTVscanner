@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -220,6 +221,8 @@ class IPTVScanner:
         self.include_langs = [p.lower() for p in self.filters.get("include_languages", [])]
         self.exclude_patterns = [p.lower() for p in self.filters.get("exclude_patterns", [])]
         self.exclude_anime = self.filters.get("exclude_anime", True)
+        # User-defined tags per category ID (for Jellyfin organization)
+        self.category_tags = {str(k): v for k, v in self.filters.get("category_tags", {}).items()}
 
         # State database (simple JSON file for tracking what's been processed)
         data_dir = Path(self.paths.get("data_dir", "./data"))
@@ -350,7 +353,7 @@ class IPTVScanner:
 
         # Get categories first for labeling
         categories = self.client.get_vod_categories()
-        cat_map = {str(c.get("category_id")): c.get("category_name", "") for c in categories}
+        cat_map = {str(c.get("category_id") or ""): c.get("category_name", "") for c in categories}
         logger.info(f"Found {len(categories)} VOD categories")
 
         # Get all VOD streams
@@ -387,7 +390,7 @@ class IPTVScanner:
 
             stream_id = str(vod.get("stream_id", ""))
             name = vod.get("name", "Unknown")
-            cat_id = str(vod.get("category_id", ""))
+            cat_id = str(vod.get("category_id", "") or "")
             cat_name = cat_map.get(cat_id, "")
             extension = vod.get("container_extension", "ts")
 
@@ -494,6 +497,7 @@ class IPTVScanner:
                     "year": year,
                     "quality": quality,
                     "category": cat_name,
+                    "tags": self.category_tags.get(cat_id, []),
                     "stream_url": stream_url,
                     "strm_path": str(strm_path),
                     "added_at": datetime.now(timezone.utc).isoformat(),
@@ -523,7 +527,7 @@ class IPTVScanner:
         series_dir = Path(self.paths["series"])
 
         categories = self.client.get_series_categories()
-        cat_map = {str(c.get("category_id")): c.get("category_name", "") for c in categories}
+        cat_map = {str(c.get("category_id") or ""): c.get("category_name", "") for c in categories}
         logger.info(f"Found {len(categories)} series categories")
 
         all_series = self.client.get_series()
@@ -555,7 +559,7 @@ class IPTVScanner:
 
             series_id = str(series.get("series_id", ""))
             name = series.get("name", "Unknown")
-            cat_id = str(series.get("category_id", ""))
+            cat_id = str(series.get("category_id", "") or "")
             cat_name = cat_map.get(cat_id, "")
 
             # Category ID whitelist filtering
@@ -737,11 +741,13 @@ class IPTVScanner:
                     "year": year,
                     "quality": quality,
                     "category": cat_name,
+                    "tags": self.category_tags.get(cat_id, []),
                     "episode_count": episode_count,
                     "tmdb_id": tmdb_id,
                     "cover": series_info.get("cover", ""),
                     "added_at": datetime.now(timezone.utc).isoformat(),
                     "fully_scanned": True,
+                    "strm_dir": str(series_dir / show_folder),
                 }
 
             except Exception as e:
@@ -769,7 +775,7 @@ class IPTVScanner:
         live_dir.mkdir(parents=True, exist_ok=True)
 
         categories = self.client.get_live_categories()
-        cat_map = {str(c.get("category_id")): c.get("category_name", "") for c in categories}
+        cat_map = {str(c.get("category_id") or ""): c.get("category_name", "") for c in categories}
 
         all_channels = self.client.get_live_streams()
         stats.total_live = len(all_channels)
@@ -778,7 +784,7 @@ class IPTVScanner:
         filtered_channels = []
         for ch in all_channels:
             name = ch.get("name", "")
-            cat_id = str(ch.get("category_id", ""))
+            cat_id = str(ch.get("category_id", "") or "")
             cat_name = cat_map.get(cat_id, "")
 
             # Category ID whitelist filtering (primary)
@@ -953,6 +959,39 @@ class IPTVScanner:
         logger.info("=== Running post-scan dedup sweep ===")
         removed = {"movies": 0, "series": 0}
 
+        # ------------------------------------------------------------------ helpers
+        def _remove_movie(sid: str) -> None:
+            info = self.state["movies"].get(sid)
+            if not info:
+                return
+            folder = Path(info.get("strm_path", "")).parent
+            if folder.exists():
+                shutil.rmtree(folder, ignore_errors=True)
+            del self.state["movies"][sid]
+
+        def _remove_series(sid: str, episodes_by_series: dict) -> None:
+            info = self.state["series"].get(sid)
+            if not info:
+                return
+            # Delete all episode .strm files and their state entries
+            series_folder = None
+            for ep_id in episodes_by_series.get(sid, []):
+                ep_info = self.state.get("episodes", {}).get(ep_id)
+                if ep_info:
+                    ep_path = Path(ep_info.get("strm_path", ""))
+                    if ep_path.exists():
+                        ep_path.unlink()
+                    if series_folder is None:
+                        series_folder = ep_path.parent.parent
+                    self.state["episodes"].pop(ep_id, None)
+            # Use stored strm_dir as authoritative source (new entries), fall back to episode-derived path
+            stored_dir = info.get("strm_dir")
+            if stored_dir:
+                series_folder = Path(stored_dir)
+            if series_folder and series_folder.exists():
+                shutil.rmtree(series_folder, ignore_errors=True)
+            del self.state["series"][sid]
+
         # --- Movies dedup sweep ---
         title_map = {}  # normalized_title -> [(sid, quality, title, year)]
         tmdb_map = {}   # tmdb_id -> [(sid, quality)]
@@ -963,30 +1002,24 @@ class IPTVScanner:
             q = info.get("quality", 720)
             tid = info.get("tmdb_id")
             nkey = normalize_for_dedup(t, y)
-
+            nkey_ny = normalize_for_dedup(t, "")  # no-year variant
             if nkey:
                 title_map.setdefault(nkey, []).append((sid, q, t, y))
+            # Index without year separately to catch year-mismatch dupes
+            if nkey_ny and nkey_ny != nkey:
+                title_map.setdefault(nkey_ny, []).append((sid, q, t, y))
             if tid:
                 tmdb_map.setdefault(str(tid), []).append((sid, q))
 
-        # Remove title-based duplicates
+        # Remove title-based duplicates (with-year and no-year groups)
         for nkey, entries in title_map.items():
             if len(entries) <= 1:
                 continue
-            # Sort by quality descending, keep the best
             entries.sort(key=lambda x: x[1], reverse=True)
             keeper = entries[0]
             for sid, q, t, y in entries[1:]:
-                info = self.state["movies"].get(sid)
-                if info:
-                    strm_path = Path(info.get("strm_path", ""))
-                    if strm_path.exists():
-                        strm_path.unlink()
-                        try:
-                            strm_path.parent.rmdir()
-                        except OSError:
-                            pass
-                    del self.state["movies"][sid]
+                if sid in self.state.get("movies", {}):
+                    _remove_movie(sid)
                     removed["movies"] += 1
                     logger.debug(f"  Dedup sweep removed movie: {t} ({y}) [{q}p] — kept [{keeper[1]}p]")
 
@@ -994,26 +1027,25 @@ class IPTVScanner:
         for tid, entries in tmdb_map.items():
             if len(entries) <= 1:
                 continue
-            # Only process entries still in state (might have been removed above)
             live = [(sid, q) for sid, q in entries if sid in self.state.get("movies", {})]
             if len(live) <= 1:
                 continue
             live.sort(key=lambda x: x[1], reverse=True)
             for sid, q in live[1:]:
-                info = self.state["movies"].get(sid)
-                if info:
-                    strm_path = Path(info.get("strm_path", ""))
-                    if strm_path.exists():
-                        strm_path.unlink()
-                        try:
-                            strm_path.parent.rmdir()
-                        except OSError:
-                            pass
-                    del self.state["movies"][sid]
+                if sid in self.state.get("movies", {}):
+                    info = self.state["movies"].get(sid, {})
+                    _remove_movie(sid)
                     removed["movies"] += 1
                     logger.debug(f"  Dedup sweep removed movie by TMDB ID {tid}: {info.get('title', '')} [{q}p]")
 
         # --- Series dedup sweep ---
+        # Build episode index keyed by series_id for efficient cleanup
+        episodes_by_series: dict[str, list[str]] = {}
+        for ep_id, ep_info in self.state.get("episodes", {}).items():
+            s_id = ep_info.get("series_id", "")
+            if s_id:
+                episodes_by_series.setdefault(s_id, []).append(ep_id)
+
         series_title_map = {}
         series_tmdb_map = {}
         for sid, info in list(self.state.get("series", {}).items()):
@@ -1022,8 +1054,11 @@ class IPTVScanner:
             q = info.get("quality", 720)
             tid = info.get("tmdb_id")
             nkey = normalize_for_dedup(t, y)
+            nkey_ny = normalize_for_dedup(t, "")
             if nkey:
                 series_title_map.setdefault(nkey, []).append((sid, q, t, y))
+            if nkey_ny and nkey_ny != nkey:
+                series_title_map.setdefault(nkey_ny, []).append((sid, q, t, y))
             if tid:
                 series_tmdb_map.setdefault(str(tid), []).append((sid, q))
 
@@ -1033,7 +1068,7 @@ class IPTVScanner:
             entries.sort(key=lambda x: x[1], reverse=True)
             for sid, q, t, y in entries[1:]:
                 if sid in self.state.get("series", {}):
-                    del self.state["series"][sid]
+                    _remove_series(sid, episodes_by_series)
                     removed["series"] += 1
                     logger.debug(f"  Dedup sweep removed series: {t} ({y}) [{q}p]")
 
@@ -1046,7 +1081,7 @@ class IPTVScanner:
             live.sort(key=lambda x: x[1], reverse=True)
             for sid, q in live[1:]:
                 if sid in self.state.get("series", {}):
-                    del self.state["series"][sid]
+                    _remove_series(sid, episodes_by_series)
                     removed["series"] += 1
 
         if removed["movies"] or removed["series"]:

@@ -224,6 +224,9 @@ class TMDBEnricher:
                 if genre_name:
                     ET.SubElement(root, "genre").text = genre_name
 
+            for tag in movie_info.get("tags", []):
+                ET.SubElement(root, "tag").text = str(tag)
+
             tree = ET.ElementTree(root)
             nfo_path.parent.mkdir(parents=True, exist_ok=True)
             ET.indent(tree, space="  ")
@@ -246,6 +249,9 @@ class TMDBEnricher:
             if show_info.get("poster"):
                 thumb = ET.SubElement(root, "thumb", aspect="poster")
                 thumb.text = f"{TMDB_IMG_BASE}/w500{show_info['poster']}"
+
+            for tag in show_info.get("tags", []):
+                ET.SubElement(root, "tag").text = str(tag)
 
             tree = ET.ElementTree(root)
             nfo_path.parent.mkdir(parents=True, exist_ok=True)
@@ -445,6 +451,7 @@ class TMDBEnricher:
 
             tmdb_info = self.search_movie(title, year)
             if tmdb_info:
+                tmdb_info["tags"] = movie.get("tags", [])
                 if self.write_movie_nfo(tmdb_info, nfo_path):
                     enriched += 1
                     consecutive_errors = 0  # Reset on success
@@ -526,6 +533,7 @@ class TMDBEnricher:
 
             tmdb_info = self.search_movie(title, year)
             if tmdb_info:
+                tmdb_info["tags"] = movie.get("tags", [])
                 if self.write_movie_nfo(tmdb_info, nfo_path):
                     enriched += 1
                 else:
@@ -560,6 +568,7 @@ class TMDBEnricher:
 
             tmdb_info = self.search_tv(title, year)
             if tmdb_info:
+                tmdb_info["tags"] = series.get("tags", [])
                 if self.write_tvshow_nfo(tmdb_info, nfo_path):
                     enriched += 1
             else:

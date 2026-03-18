@@ -36,7 +36,7 @@
 .lv .e{color:var(--red)}.lv .w{color:var(--orange)}.lv .i{color:var(--green)}
 .cs{padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;width:220px}.cs:focus{outline:none;border-color:var(--accent)}
 .cl{max-height:340px;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:2px}
-.ci{display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:4px;font-size:11px;cursor:pointer}.ci:hover{background:var(--bg3)}.ci input{accent-color:var(--accent);width:13px;height:13px}.ci.s{color:var(--accent)}
+.ci{display:flex;flex-direction:column;padding:5px 8px;border-radius:4px;font-size:11px}.ci:hover{background:var(--bg3)}.ci-row{display:flex;align-items:center;gap:5px;width:100%;cursor:pointer}.ci input[type=checkbox]{accent-color:var(--accent);width:13px;height:13px;flex-shrink:0;cursor:pointer}.ci.s .ci-row{color:var(--accent)}.ci-tgs{display:flex;flex-wrap:wrap;gap:2px;align-items:center;padding-left:18px;margin-top:3px}.ci-tag{background:rgba(56,189,248,.1);border:1px solid rgba(56,189,248,.25);color:var(--accent);padding:1px 6px;border-radius:3px;font-size:9px;display:inline-flex;align-items:center;gap:3px}.ci-tx{cursor:pointer;opacity:.4;font-size:10px;line-height:1}.ci-tx:hover{opacity:1;color:var(--red)}.ci-ti{background:none;border:none;border-bottom:1px dashed var(--border);color:var(--muted);font-size:9px;width:28px;padding:0 2px;outline:none;font-family:inherit;transition:width .15s}.ci-ti:focus{width:60px;color:var(--text);border-color:var(--accent)}.ci-ti::placeholder{color:var(--border)}.ctb-cnt{font-size:9px;color:var(--muted);display:block;margin-top:1px;font-weight:400}
 .ctb{display:flex;gap:2px;margin-bottom:12px}.ctb div{padding:6px 12px;border-radius:4px;font-size:11px;font-weight:500;cursor:pointer;background:var(--bg);border:1px solid var(--border);color:var(--muted)}.ctb div.a{background:var(--accent);color:var(--bg);border-color:var(--accent)}
 .ht{width:100%;border-collapse:collapse;font-size:11px}.ht th{text-align:left;padding:7px 10px;border-bottom:1px solid var(--border);color:var(--muted);font-size:10px;text-transform:uppercase}.ht td{padding:7px 10px;border-bottom:1px solid var(--border)}.ht tr:last-child td{border:none}
 .badge{padding:2px 6px;border-radius:3px;font-size:9px;font-weight:600;display:inline-block}.bg-g{background:rgba(52,211,153,.15);color:var(--green)}.bg-r{background:rgba(248,113,113,.15);color:var(--red)}.bg-b{background:rgba(56,189,248,.15);color:var(--accent)}
@@ -69,7 +69,7 @@
 </div>
 <!-- CATEGORIES -->
 <div class="pg" id="page-categories">
-<div class="ctb"><div class="a" onclick="ldC('vod',this)">Movies</div><div onclick="ldC('series',this)">Series</div><div onclick="ldC('live',this)">Live</div></div>
+<div class="ctb"><div class="a" onclick="ldC('vod',this)">Movies<span class="ctb-cnt" id="cnt-vod"></span></div><div onclick="ldC('series',this)">Series<span class="ctb-cnt" id="cnt-series"></span></div><div onclick="ldC('live',this)">Live<span class="ctb-cnt" id="cnt-live"></span></div></div>
 <div class="pn"><div class="ph"><span>Select categories</span><div class="bgrp"><button class="btn bsm bs" onclick="cAll()">All</button><button class="btn bsm bs" onclick="cNone()">None</button><button class="btn bsm bp" onclick="cSave()">Save</button></div></div>
 <div class="pb"><div style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><input class="cs" id="cq" placeholder="Search..." oninput="cR()"><span style="font-size:11px;color:var(--muted)" id="cn"></span></div><div class="cl" id="clist"><p style="color:var(--muted);grid-column:1/-1">Select a tab.</p></div></div></div></div>
 <!-- PROVIDERS -->
@@ -109,7 +109,7 @@ function poll(){A("/api/status").then(function(d){
   G("v1").textContent=F(l.movies);G("v1s").textContent=(l.movies_with_tmdb||0)?l.movies_with_tmdb+" TMDB":"";
   G("v2").textContent=F(l.series);G("v2s").textContent=(l.episodes||0)?F(l.episodes)+" episodes":"";
   G("v3").textContent=F(l.live_channels);
-  var en=d.enrich_stats||{};G("v4").textContent=F(en.enriched||0);G("v4s").textContent=(en.skipped||0)?"+"+(en.skipped||0)+" Jellyfin handles":"last scan";
+  var en=d.enrich_stats||{},totalEnriched=(l.movies_with_tmdb||0)+(l.series_with_tmdb||0);G("v4").textContent=F(totalEnriched);G("v4s").textContent=(en.enriched||0)?"last scan: +"+(en.enriched||0):"all time";
   G("v5").textContent=F((dd.movies||0)+(dd.series||0));G("v5s").textContent=(dd.movies||0)||dd.series?"movies: "+dd.movies+", series: "+dd.series:"last scan";
 
   if(d.scan_running){G("prog").style.display="block";G("b1").style.display="none";G("b2").style.display="";
@@ -136,16 +136,24 @@ function doJF(){A("/api/jellyfin/scan",{method:"POST"}).then(function(d){T(d.suc
 
 function ldC(t,el){catT=t;document.querySelectorAll(".ctb div").forEach(function(x){x.classList.remove("a")});if(el)el.classList.add("a");
   G("clist").innerHTML='<p style="color:var(--muted);grid-column:1/-1">Loading...</p>';
-  A("/api/categories/"+t).then(function(d){catD=d;cR()}).catch(function(){G("clist").innerHTML='<p class="rd">Failed</p>'})}
+  A("/api/categories/"+t).then(function(d){catD=d;var cnt=G("cnt-"+t);if(cnt)cnt.textContent=d.length+" total";cR()}).catch(function(){G("clist").innerHTML='<p class="rd">Failed</p>'})}
 function cR(){var q=G("cq").value.toLowerCase(),f=catD.filter(function(c){return c.name.toLowerCase().indexOf(q)>=0});
-  G("cn").textContent=catD.filter(function(c){return c.selected}).length+"/"+catD.length;
-  G("clist").innerHTML=f.map(function(c){return '<label class="ci '+(c.selected?"s":"")+'"><input type="checkbox" '+(c.selected?"checked":"")+" onchange=\"cT('"+c.id+"')\">"+c.name+"</label>"}).join("")}
+  G("cn").textContent=catD.filter(function(c){return c.selected}).length+" selected / "+catD.length+" total";
+  G("clist").innerHTML=f.map(function(c){
+    var tgs=(c.tags||[]).map(function(t,i){return '<span class="ci-tag">'+t+'<span class="ci-tx" onclick="rmTag(\''+c.id+'\','+i+')">&#215;</span></span>'}).join("");
+    return '<div class="ci '+(c.selected?"s":"")+'">'
+      +'<div class="ci-row"><input type="checkbox" '+(c.selected?"checked":"")+" onchange=\"cT('"+c.id+"')\"><span onclick=\"cT('"+c.id+"')\">"+c.name+'</span></div>'
+      +'<div class="ci-tgs">'+tgs+'<input class="ci-ti" placeholder="+tag" onkeydown="addTag(\''+c.id+'\',event,this)" onblur="addTag(\''+c.id+'\',event,this)"></div>'
+      +'</div>'}).join("")}
 function cT(id){var c=catD.find(function(x){return x.id===id});if(c)c.selected=!c.selected;cR()}
+function addTag(id,ev,el){if(ev.type==="keydown"&&ev.key!=="Enter"&&ev.key!==",")return;var t=(el.value||"").trim().replace(/,$/,"").trim();if(!t)return;if(ev.type==="keydown")ev.preventDefault();var c=catD.find(function(x){return x.id===id});if(c){c.tags=c.tags||[];if(c.tags.indexOf(t)<0)c.tags.push(t)}el.value="";cR()}
+function rmTag(id,idx){var c=catD.find(function(x){return x.id===id});if(c){c.tags=(c.tags||[]).filter(function(_,i){return i!==idx});cR()}}
 function cAll(){catD.forEach(function(c){c.selected=true});cR()}
 function cNone(){catD.forEach(function(c){c.selected=false});cR()}
 function cSave(){var ids=catD.filter(function(c){return c.selected}).map(function(c){return c.id});
   var k=catT==="vod"?"vod_category_ids":catT==="series"?"series_category_ids":"live_category_ids";
-  var b={};b[k]=ids;A("/api/categories/save",{method:"POST",body:JSON.stringify(b)});T("Saved")}
+  var tags={};catD.forEach(function(c){if(c.tags&&c.tags.length)tags[c.id]=c.tags});
+  var b={};b[k]=ids;b["category_tags"]=tags;A("/api/categories/save",{method:"POST",body:JSON.stringify(b)});T("Saved")}
 
 function esc(s){return(s||"").replace(/'/g,"\\'").replace(/"/g,"&quot;")}
 function ldPr(){A("/api/providers").then(function(p){var h="";

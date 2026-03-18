@@ -291,7 +291,8 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
             elif ct=="series": cats=scanner.client.get_series_categories(); sel=set(str(c) for c in config.get("filters",{}).get("series_category_ids",[]))
             elif ct=="live": cats=scanner.client.get_live_categories(); sel=set(str(c) for c in config.get("filters",{}).get("live_category_ids",[]))
             else: return jsonify({"error":"Bad type"}),400
-            r = [{"id":str(c.get("category_id","")),"name":c.get("category_name",""),"selected":str(c.get("category_id","")) in sel} for c in cats]
+            cat_tags = config.get("filters", {}).get("category_tags", {})
+            r = [{"id":str(c.get("category_id","") or ""),"name":c.get("category_name",""),"selected":str(c.get("category_id","") or "") in sel,"tags":cat_tags.get(str(c.get("category_id","") or ""),[]) } for c in cats]
             r.sort(key=lambda x:x["name"])
             return jsonify(r)
         except Exception as e: return jsonify({"error":str(e)}),500
@@ -301,6 +302,11 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
         d = request.json or {}
         for key in ["vod_category_ids","series_category_ids","live_category_ids"]:
             if key in d: config.setdefault("filters",{})[key] = [int(x) for x in d[key]]
+        if "category_tags" in d:
+            existing = config.setdefault("filters", {}).setdefault("category_tags", {})
+            existing.update(d["category_tags"])
+            for k in list(existing.keys()):
+                if not existing[k]: del existing[k]
         _save(config, config_path)
         if scanner:
             scanner.vod_cat_ids = set(str(x) for x in config.get("filters",{}).get("vod_category_ids",[]))
