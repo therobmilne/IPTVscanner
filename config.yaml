@@ -158,6 +158,12 @@ schedule:
   frequency: "daily"
   scan_time: "03:30"
 
+proxy:
+  # Proxy streams live TV through this app so Threadfin gets one connection per channel
+  # Point Threadfin at:  M3U → http://YOUR_IP:8888/proxy/playlist.m3u
+  #                      EPG → http://YOUR_IP:8888/proxy/epg.xml
+  auto_start: true        # Start proxy streaming automatically with the dashboard
+
 dashboard:
   host: "0.0.0.0"
   port: 8888

@@ -31,6 +31,10 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
         from .restream_proxy import RestreamProxy
         app.proxy = RestreamProxy(config)
         app.proxy.load_channels()
+        # Auto-start proxy streaming if configured (default: True)
+        if config.get("proxy", {}).get("auto_start", True):
+            app.proxy_running = True
+            logger.info("Proxy auto-started (set proxy.auto_start: false in config to disable)")
     except Exception as e:
         logger.warning(f"Proxy init: {e}")
 
@@ -241,19 +245,39 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
         app.proxy_running = False
         return jsonify({"message":"Stopped"})
 
+    @app.route("/api/proxy/info")
+    def api_px_info():
+        """Return Threadfin setup URLs for this server."""
+        host = request.host  # includes port if non-standard
+        scheme = request.scheme
+        base = f"{scheme}://{host}"
+        epg_ready = bool(app.proxy and app.proxy.epg_path.exists()) if app.proxy else False
+        return jsonify({
+            "m3u_url": f"{base}/proxy/playlist.m3u",
+            "epg_url": f"{base}/proxy/epg.xml",
+            "channels": len(app.proxy.channel_map) if app.proxy else 0,
+            "epg_ready": epg_ready,
+            "proxy_running": app.proxy_running,
+        })
+
     @app.route("/proxy/playlist.m3u")
+    @app.route("/proxy/playlist")
     def px_m3u():
-        if not app.proxy or not app.proxy_running: return Response("Not running",status=503)
-        return Response(app.proxy.generate_proxy_m3u(f"{request.scheme}://{request.host}/proxy"), mimetype="audio/x-mpegurl")
+        if not app.proxy: return Response("Proxy not configured", status=503)
+        base = f"{request.scheme}://{request.host}/proxy"
+        return Response(app.proxy.generate_proxy_m3u(base), mimetype="audio/x-mpegurl",
+                        headers={"Content-Disposition": "inline; filename=playlist.m3u"})
 
     @app.route("/proxy/epg.xml")
+    @app.route("/proxy/xmltv.xml")
     def px_epg():
-        if app.proxy and app.proxy.epg_path.exists(): return send_file(str(app.proxy.epg_path), mimetype="application/xml")
-        return Response("Not found",status=404)
+        if app.proxy and app.proxy.epg_path.exists():
+            return send_file(str(app.proxy.epg_path), mimetype="application/xml")
+        return Response("EPG not yet generated — run a scan first", status=404)
 
     @app.route("/proxy/stream/<f>")
     def px_stream(f):
-        if not app.proxy or not app.proxy_running: return Response("Not running",status=503)
+        if not app.proxy or not app.proxy_running: return Response("Proxy streaming not running",status=503)
         sk = f.split(".")[0]; cid = f"c{int(time.time()*1000)%1000000}"
         def gen():
             a = app.proxy.get_or_create_stream(sk); q = a.add_client(cid)

@@ -865,24 +865,79 @@ class IPTVScanner:
         self._generate_epg(filtered_channels, live_dir, stats)
 
     def _generate_epg(self, channels: list, live_dir: Path, stats: ScanStats) -> None:
-        """Download the provider's EPG and filter to our channels only."""
+        """Download the provider's EPG, filter to our channels only, and save."""
         logger.info("Downloading EPG data...")
         epg_url = self.client.get_epg_url()
+
+        # Collect all tvg-ids from our filtered channels
+        wanted_ids: set[str] = set()
+        for ch in channels:
+            eid = ch.get("epg_channel_id", "")
+            if eid:
+                wanted_ids.add(eid)
+        logger.info(f"EPG: filtering for {len(wanted_ids)} channel IDs")
+
+        raw_path = live_dir / "epg_raw.xml"
+        epg_path = live_dir / "epg.xml"
 
         try:
             resp = self.client.session.get(epg_url, timeout=120, stream=True)
             resp.raise_for_status()
 
-            epg_path = live_dir / "epg.xml"
-            with open(epg_path, "wb") as f:
+            with open(raw_path, "wb") as f:
                 for chunk in resp.iter_content(chunk_size=65536):
                     f.write(chunk)
 
-            file_size = epg_path.stat().st_size / (1024 * 1024)
-            logger.info(f"EPG downloaded: {file_size:.1f} MB -> {epg_path}")
+            file_size = raw_path.stat().st_size / (1024 * 1024)
+            logger.info(f"EPG downloaded: {file_size:.1f} MB — filtering...")
+
+            if wanted_ids:
+                self._filter_epg(raw_path, epg_path, wanted_ids)
+                filtered_size = epg_path.stat().st_size / (1024 * 1024)
+                logger.info(f"EPG filtered: {filtered_size:.1f} MB -> {epg_path}")
+            else:
+                # No IDs to filter on — just use raw
+                import shutil as _shutil
+                _shutil.copy2(raw_path, epg_path)
+                logger.info("EPG: no channel IDs to filter on, using raw")
+
+            # Remove temp raw file
+            try:
+                raw_path.unlink()
+            except Exception:
+                pass
+
         except Exception as e:
             logger.error(f"Failed to download EPG: {e}")
             stats.errors.append(f"EPG download failed: {e}")
+
+    @staticmethod
+    def _filter_epg(src: Path, dst: Path, wanted_ids: set) -> None:
+        """Stream-parse an XMLTV file and write only elements for wanted channel IDs.
+        Handles files of any size without loading them fully into memory."""
+        import xml.etree.ElementTree as ET
+
+        with open(dst, "w", encoding="utf-8") as out:
+            out.write('<?xml version="1.0" encoding="UTF-8"?>\n')
+            out.write('<tv>\n')
+
+            # iterparse so we never hold the whole tree in memory
+            context = ET.iterparse(str(src), events=("end",))
+            for event, elem in context:
+                if elem.tag == "channel":
+                    cid = elem.get("id", "")
+                    if cid in wanted_ids:
+                        out.write(ET.tostring(elem, encoding="unicode"))
+                        out.write("\n")
+                    elem.clear()
+                elif elem.tag == "programme":
+                    cid = elem.get("channel", "")
+                    if cid in wanted_ids:
+                        out.write(ET.tostring(elem, encoding="unicode"))
+                        out.write("\n")
+                    elem.clear()
+
+            out.write('</tv>\n')
 
     # ---------------------------------------------------------- full scan
     def switch_provider(self, server: str, username: str, password: str, output_format: str = "ts"):
