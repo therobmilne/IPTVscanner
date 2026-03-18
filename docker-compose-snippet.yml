@@ -1,0 +1,30 @@
+# ============================================================
+# IPTV Stream Manager - Add this to your existing docker-compose.yml
+# at /mnt/ssd/compose/docker-compose.yml
+# ============================================================
+
+  iptv-manager:
+    build: /mnt/ssd/appdata/iptv-manager
+    container_name: iptv-manager
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    volumes:
+      # Config (editable - persists your settings, categories, API keys)
+      - /mnt/ssd/appdata/iptv-manager/config.yaml:/app/config.yaml
+      # Scan state & history (persists across rebuilds)
+      - /mnt/ssd/appdata/iptv-manager/data:/app/data
+      # Movie STRM files → Jellyfin reads these
+      - /mnt/ssd/media/strm/movies:/media/strm/movies
+      # TV Show STRM files → Jellyfin reads these
+      - /mnt/ssd/media/strm/tvshows:/media/strm/tvshows
+      # Live TV EPG/M3U → Threadfin reads these
+      - /mnt/ssd/appdata/threadfin:/media/threadfin
+    environment:
+      - TZ=America/Toronto
+    healthcheck:
+      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:8888/api/status', timeout=5)"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s

@@ -1,0 +1,10 @@
+# IPTV Stream Manager - Dependencies
+requests>=2.31.0
+pyyaml>=6.0.1
+flask>=3.0.0
+apscheduler>=3.10.4
+rich>=13.7.0
+tmdbv3api>=1.9.0
+fuzzywuzzy>=0.18.0
+python-Levenshtein>=0.25.0
+gunicorn>=21.2.0

@@ -1,0 +1,176 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"><title>IPTV Stream Manager</title>
+<style>
+:root{--bg:#0a0e17;--bg2:#111827;--bg3:#1a2233;--text:#e2e8f0;--muted:#8892a4;--accent:#38bdf8;--accent2:#818cf8;--green:#34d399;--red:#f87171;--orange:#fb923c;--yellow:#fbbf24;--border:#2a3548;--r:10px}
+*{margin:0;padding:0;box-sizing:border-box}body{background:var(--bg);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif}
+.app{display:flex;min-height:100vh}
+.sb{width:200px;background:var(--bg2);border-right:1px solid var(--border);position:fixed;height:100vh;z-index:10;display:flex;flex-direction:column;transition:transform .2s}
+.logo{padding:18px 14px;font-size:15px;font-weight:700;border-bottom:1px solid var(--border)}.logo span{color:var(--accent)}
+.nav{flex:1;padding:6px 0}.ni{display:block;padding:9px 14px;cursor:pointer;color:var(--muted);font-size:13px;font-weight:500;transition:.15s}
+.ni:hover{color:var(--text);background:rgba(56,189,248,.05)}.ni.a{color:var(--accent);background:rgba(56,189,248,.08);border-right:2px solid var(--accent)}
+.mn{flex:1;margin-left:200px}.hd{padding:14px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--bg2);flex-wrap:wrap;gap:8px}
+.hd h1{font-size:17px;font-weight:600}.ct{padding:18px 24px}.pg{display:none}.pg.a{display:block}
+.sg{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:16px}
+.sc{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);padding:14px}
+.sc .lb{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.7px;margin-bottom:5px}
+.sc .vl{font-size:22px;font-weight:700}.sc .sub{font-size:10px;color:var(--muted);margin-top:3px}
+.bl{color:var(--accent)}.pr{color:var(--accent2)}.gn{color:var(--green)}.og{color:var(--orange)}.yl{color:var(--yellow)}.rd{color:var(--red)}
+.pn{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r);margin-bottom:14px}
+.ph{padding:12px 14px;border-bottom:1px solid var(--border);font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}.pb{padding:14px}
+.bar{height:5px;background:var(--bg);border-radius:3px;overflow:hidden;margin:6px 0}.fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent2));border-radius:3px;transition:width .5s}
+.pi{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:3px}.pi .eta{color:var(--accent);font-weight:500}
+.steps{display:flex;gap:4px;margin:8px 0;flex-wrap:wrap}.st{padding:4px 8px;border-radius:4px;font-size:10px;font-weight:500;background:var(--bg);border:1px solid var(--border);color:var(--muted)}
+.st.ac{border-color:var(--accent);color:var(--accent)}.st.dn{border-color:var(--green);color:var(--green)}
+.btn{padding:7px 14px;border:none;border-radius:6px;font-family:inherit;font-size:12px;font-weight:600;cursor:pointer;transition:.15s}
+.bp{background:var(--accent);color:var(--bg)}.bs{background:var(--bg3);color:var(--text);border:1px solid var(--border)}
+.bd{background:var(--red);color:#fff}.bg{background:var(--green);color:var(--bg)}.bsm{padding:4px 10px;font-size:10px}
+.bgrp{display:flex;gap:6px;flex-wrap:wrap}
+.fg{margin-bottom:12px}.fg label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:500}
+.fg input,.fg select{width:100%;padding:8px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:inherit;font-size:12px}
+.fg input:focus,.fg select:focus{outline:none;border-color:var(--accent)}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:12px}.fr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.tg{display:flex;align-items:center;gap:7px;cursor:pointer;font-size:12px}
+.tg input{display:none}.tg .sl{width:36px;height:20px;background:var(--bg);border:1px solid var(--border);border-radius:10px;position:relative;transition:.2s;flex-shrink:0}
+.tg .sl::after{content:'';width:14px;height:14px;background:var(--muted);border-radius:50%;position:absolute;top:2px;left:2px;transition:.2s}
+.tg input:checked+.sl{background:var(--accent);border-color:var(--accent)}.tg input:checked+.sl::after{transform:translateX(16px);background:#fff}
+.lv{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:10px;height:350px;overflow-y:auto;font-family:monospace;font-size:10px;line-height:1.7;color:var(--muted)}
+.lv .e{color:var(--red)}.lv .w{color:var(--orange)}.lv .i{color:var(--green)}
+.cs{padding:6px 10px;background:var(--bg);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:11px;width:220px}.cs:focus{outline:none;border-color:var(--accent)}
+.cl{max-height:340px;overflow-y:auto;display:grid;grid-template-columns:1fr 1fr;gap:2px}
+.ci{display:flex;align-items:center;gap:5px;padding:5px 8px;border-radius:4px;font-size:11px;cursor:pointer}.ci:hover{background:var(--bg3)}.ci input{accent-color:var(--accent);width:13px;height:13px}.ci.s{color:var(--accent)}
+.ctb{display:flex;gap:2px;margin-bottom:12px}.ctb div{padding:6px 12px;border-radius:4px;font-size:11px;font-weight:500;cursor:pointer;background:var(--bg);border:1px solid var(--border);color:var(--muted)}.ctb div.a{background:var(--accent);color:var(--bg);border-color:var(--accent)}
+.ht{width:100%;border-collapse:collapse;font-size:11px}.ht th{text-align:left;padding:7px 10px;border-bottom:1px solid var(--border);color:var(--muted);font-size:10px;text-transform:uppercase}.ht td{padding:7px 10px;border-bottom:1px solid var(--border)}.ht tr:last-child td{border:none}
+.badge{padding:2px 6px;border-radius:3px;font-size:9px;font-weight:600;display:inline-block}.bg-g{background:rgba(52,211,153,.15);color:var(--green)}.bg-r{background:rgba(248,113,113,.15);color:var(--red)}.bg-b{background:rgba(56,189,248,.15);color:var(--accent)}
+.pc{background:var(--bg);border:1px solid var(--border);border-radius:7px;padding:12px;margin-bottom:8px}
+.ib{padding:10px 12px;border-radius:6px;background:var(--bg);border:1px solid var(--border);font-size:11px;color:var(--muted);margin:6px 0;font-family:monospace}.ib a{color:var(--accent)}
+.toast{position:fixed;bottom:16px;right:16px;padding:10px 16px;border-radius:7px;background:var(--bg3);border:1px solid var(--border);font-size:12px;z-index:999;animation:si .3s}.toast.ok{border-color:var(--green)}.toast.er{border-color:var(--red)}
+@keyframes si{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+.hamburger{display:none;background:none;border:none;color:var(--text);font-size:22px;cursor:pointer}
+@media(max-width:768px){.sb{transform:translateX(-100%);width:240px;z-index:100}.sb.open{transform:translateX(0)}.mn{margin-left:0}.hamburger{display:block}.sg{grid-template-columns:1fr 1fr}.fr,.fr3{grid-template-columns:1fr}.cl{grid-template-columns:1fr}.hd{padding:10px 14px}.ct{padding:14px}}
+@media(max-width:480px){.sg{grid-template-columns:1fr}}
+</style></head><body>
+<div class="app">
+<div class="sb" id="sb"><div class="logo"><span>IPTV</span> Stream Mgr</div><div class="nav">
+<div class="ni a" data-page="dashboard">Dashboard</div><div class="ni" data-page="categories">Categories</div><div class="ni" data-page="providers">Providers</div><div class="ni" data-page="proxy">Proxy</div><div class="ni" data-page="history">History</div><div class="ni" data-page="logs">Logs</div><div class="ni" data-page="settings">Settings</div></div></div>
+<div class="mn"><div class="hd"><div style="display:flex;align-items:center;gap:10px"><button class="hamburger" onclick="document.getElementById('sb').classList.toggle('open')">&#9776;</button><h1 id="pt">Dashboard</h1></div>
+<div class="bgrp"><button class="btn bp" id="b1" onclick="doScan()">&#9654; Scan</button><button class="btn bd bsm" id="b2" onclick="doStop()" style="display:none">&#9632; Stop</button><button class="btn bg bsm" onclick="doJF()">&#8635; Jellyfin</button></div></div>
+<div class="ct">
+<!-- DASHBOARD -->
+<div class="pg a" id="page-dashboard">
+<div class="sg">
+<div class="sc"><div class="lb">Movies</div><div class="vl bl" id="v1">-</div><div class="sub" id="v1s"></div></div>
+<div class="sc"><div class="lb">TV Series / Episodes</div><div class="vl pr" id="v2">-</div><div class="sub" id="v2s"></div></div>
+<div class="sc"><div class="lb">Live Channels</div><div class="vl og" id="v3">-</div></div>
+<div class="sc"><div class="lb">TMDB Enrichment</div><div class="vl yl" id="v4">-</div><div class="sub" id="v4s"></div></div>
+<div class="sc"><div class="lb">Dupes Removed</div><div class="vl gn" id="v5">0</div><div class="sub" id="v5s"></div></div>
+</div>
+<div class="pn" id="prog" style="display:none"><div class="ph">Scan Progress</div><div class="pb"><div class="steps" id="ss"></div><div class="bar"><div class="fill" id="pf" style="width:0%"></div></div><div class="pi"><span id="pd">Starting...</span><span class="eta" id="pe"></span><span id="pp">0%</span></div></div></div>
+<div class="pn"><div class="ph">Last Scan</div><div class="pb" id="ls"><p style="color:var(--muted)">No scan yet.</p></div></div>
+<div class="pn"><div class="ph">Jellyfin</div><div class="pb" id="jf"><p style="color:var(--muted)">Checking...</p></div></div>
+</div>
+<!-- CATEGORIES -->
+<div class="pg" id="page-categories">
+<div class="ctb"><div class="a" onclick="ldC('vod',this)">Movies</div><div onclick="ldC('series',this)">Series</div><div onclick="ldC('live',this)">Live</div></div>
+<div class="pn"><div class="ph"><span>Select categories</span><div class="bgrp"><button class="btn bsm bs" onclick="cAll()">All</button><button class="btn bsm bs" onclick="cNone()">None</button><button class="btn bsm bp" onclick="cSave()">Save</button></div></div>
+<div class="pb"><div style="display:flex;gap:6px;align-items:center;margin-bottom:8px"><input class="cs" id="cq" placeholder="Search..." oninput="cR()"><span style="font-size:11px;color:var(--muted)" id="cn"></span></div><div class="cl" id="clist"><p style="color:var(--muted);grid-column:1/-1">Select a tab.</p></div></div></div></div>
+<!-- PROVIDERS -->
+<div class="pg" id="page-providers">
+<div class="pn"><div class="ph">Providers<button class="btn bsm bp" onclick="document.getElementById('apnl').style.display='block'">+ Add</button></div><div class="pb" id="plist">Loading...</div></div>
+<div class="pn" id="apnl" style="display:none"><div class="ph">Add Provider</div><div class="pb"><div class="fr3"><div class="fg"><label>Name</label><input id="ap-n"></div><div class="fg"><label>Server</label><input id="ap-s"></div><div class="fg"><label>Username</label><input id="ap-u"></div></div><div class="fg"><label>Password</label><input id="ap-p" type="password"></div><div class="bgrp"><button class="btn bp" onclick="addP()">Add</button><button class="btn bs" onclick="document.getElementById('apnl').style.display='none'">Cancel</button></div></div></div>
+<div class="pn" id="epnl" style="display:none"><div class="ph">Update Provider</div><div class="pb"><p style="font-size:11px;color:var(--muted);margin-bottom:10px">Enable rewrite to update .strm files without rescanning.</p><input type="hidden" id="ep-id"><div class="fr3"><div class="fg"><label>Name</label><input id="ep-n"></div><div class="fg"><label>Server</label><input id="ep-s"></div><div class="fg"><label>Username</label><input id="ep-u"></div></div><div class="fg"><label>Password (blank=keep)</label><input id="ep-p" type="password"></div><label class="tg" style="margin-bottom:10px"><input type="checkbox" id="ep-rw"><div class="sl"></div>Rewrite .strm files</label><div id="ep-r" style="margin-bottom:8px"></div><div class="bgrp"><button class="btn bp" onclick="updP()">Save</button><button class="btn bs" onclick="document.getElementById('epnl').style.display='none'">Cancel</button></div></div></div></div>
+<!-- PROXY -->
+<div class="pg" id="page-proxy"><div class="pn"><div class="ph">Restream Proxy<div class="bgrp"><button class="btn bsm bg" id="px1" onclick="pxOn()">Start</button><button class="btn bsm bd" id="px2" onclick="pxOff()" style="display:none">Stop</button></div></div><div class="pb"><p style="font-size:12px;color:var(--muted);margin-bottom:10px">Shares one upstream connection for live TV across devices.</p><div class="sg" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))"><div class="sc"><div class="lb">Streams</div><div class="vl bl" id="pxs">0</div></div><div class="sc"><div class="lb">Clients</div><div class="vl gn" id="pxc">0</div></div><div class="sc"><div class="lb">Channels</div><div class="vl og" id="pxch">0</div></div></div><p style="font-size:12px;font-weight:600;margin:10px 0 4px">Threadfin URLs</p><div class="ib" id="pxu">Start proxy to see URLs.</div></div></div></div>
+<!-- HISTORY -->
+<div class="pg" id="page-history"><div class="pn"><div class="ph">Scan History</div><div class="pb"><table class="ht"><thead><tr><th>Date</th><th>Dur</th><th>Movies</th><th>Eps</th><th>Live</th><th></th></tr></thead><tbody id="hb"><tr><td colspan="6" style="color:var(--muted)">Loading...</td></tr></tbody></table></div></div></div>
+<!-- LOGS -->
+<div class="pg" id="page-logs"><div class="pn"><div class="ph">Live Log<button class="btn bsm bs" onclick="ldL()">Refresh</button></div><div class="pb"><div class="lv" id="lo">Loading...</div></div></div></div>
+<!-- SETTINGS -->
+<div class="pg" id="page-settings">
+<div class="pn"><div class="ph">TMDB</div><div class="pb"><div class="fg"><label>API Key</label><input id="si-tmdb"></div></div></div>
+<div class="pn"><div class="ph">Jellyfin</div><div class="pb"><div class="fr"><div class="fg"><label>URL</label><input id="si-jfu" placeholder="http://localhost:8096"></div><div class="fg"><label>API Key</label><input id="si-jfk" placeholder="Jellyfin > Dashboard > API Keys"></div></div><label class="tg"><input type="checkbox" id="si-jfa"><div class="sl"></div>Auto rescan after scan</label></div></div>
+<div class="pn"><div class="ph">Schedule</div><div class="pb"><label class="tg" style="margin-bottom:12px"><input type="checkbox" id="si-se"><div class="sl"></div>Enable auto-scan</label><div class="fr"><div class="fg"><label>Time</label><input type="time" id="si-st" value="03:30"></div><div class="fg"><label>Frequency</label><select id="si-sf"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div></div></div></div>
+<button class="btn bp" onclick="saveSt()">Save All Settings</button></div>
+</div></div></div>
+<script>
+var G=function(id){return document.getElementById(id)};
+var F=function(n){return n!=null?Number(n).toLocaleString():'-'};
+function A(u,o){o=o||{};o.headers={"Content-Type":"application/json"};return fetch(u,o).then(function(r){return r.json()})}
+function T(m,ok){var e=document.createElement("div");e.className="toast "+(ok!==false?"ok":"er");e.textContent=m;document.body.appendChild(e);setTimeout(function(){e.remove()},3000)}
+function fE(s){if(!s||s<=0)return"";var h=Math.floor(s/3600),m=Math.floor(s%3600/60),sc=Math.round(s%60);return h>0?"~"+h+"h "+m+"m":m>0?"~"+m+"m "+sc+"s":"~"+sc+"s"}
+var catT="vod",catD=[];
+
+document.querySelectorAll(".ni").forEach(function(i){i.addEventListener("click",function(){
+  document.querySelectorAll(".ni").forEach(function(n){n.classList.remove("a")});i.classList.add("a");
+  document.querySelectorAll(".pg").forEach(function(x){x.classList.remove("a")});G("page-"+i.dataset.page).classList.add("a");
+  G("pt").textContent=i.textContent.trim();G("sb").classList.remove("open");
+  var p=i.dataset.page;if(p==="history")ldH();if(p==="logs")ldL();if(p==="settings")ldSt();if(p==="providers")ldPr()})});
+
+function poll(){A("/api/status").then(function(d){
+  var l=d.library||{},dd=d.dedup_stats||{};
+  G("v1").textContent=F(l.movies);G("v1s").textContent=(l.movies_with_tmdb||0)?l.movies_with_tmdb+" TMDB":"";
+  G("v2").textContent=F(l.series);G("v2s").textContent=(l.episodes||0)?F(l.episodes)+" episodes":"";
+  G("v3").textContent=F(l.live_channels);
+  var en=d.enrich_stats||{};G("v4").textContent=F(en.enriched||0);G("v4s").textContent=(en.skipped||0)?"+"+(en.skipped||0)+" Jellyfin handles":"last scan";
+  G("v5").textContent=F((dd.movies||0)+(dd.series||0));G("v5s").textContent=(dd.movies||0)||dd.series?"movies: "+dd.movies+", series: "+dd.series:"last scan";
+
+  if(d.scan_running){G("prog").style.display="block";G("b1").style.display="none";G("b2").style.display="";
+    var p=d.scan_progress||{};G("pf").style.width=(p.percent||0)+"%";G("pp").textContent=Math.round(p.percent||0)+"%";
+    G("pd").textContent=(p.step_label||"Working")+(p.details?" - "+p.details:"");G("pe").textContent=fE(p.eta_seconds);
+    var nm=["Movies","Series","Live TV","TMDB","Done"],c=p.step_number||0;
+    G("ss").innerHTML=nm.map(function(s,i){var n=i+1;return '<div class="st '+(n<c?"dn":n===c?"ac":"")+'">'+(n<c?"\u2713":n)+" "+s+"</div>"}).join("")}
+  else{G("prog").style.display="none";G("b1").style.display="";G("b2").style.display="none"}
+
+  if(d.last_scan){var s=d.last_scan;G("ls").innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(100px,1fr));gap:8px;font-size:12px"><div><span style="color:var(--muted);font-size:10px">Date</span><br><b>'+(s.started_at?new Date(s.started_at).toLocaleString():"-")+'</b></div><div><span style="color:var(--muted);font-size:10px">Duration</span><br><b>'+(s.duration||"-")+'</b></div><div><span style="color:var(--muted);font-size:10px">Movies</span><br><b>'+F(s.new_movies)+'</b></div><div><span style="color:var(--muted);font-size:10px">Episodes</span><br><b>'+F(s.new_episodes)+'</b></div><div><span style="color:var(--muted);font-size:10px">Live</span><br><b>'+F(s.live_channels||s.new_channels)+'</b></div><div><span style="color:var(--muted);font-size:10px">Dupes</span><br><b>'+F(s.dupes_total||0)+'</b></div></div>'}
+
+  var jf=G("jf");
+  if(d.jellyfin){if(d.jellyfin.online)jf.innerHTML='<span class="gn">\u25cf Online</span> - '+(d.jellyfin.name||"")+" v"+(d.jellyfin.version||"")+(d.jellyfin.auth?"":" <span class='rd'>(no API key)</span>");else jf.innerHTML='<span class="rd">\u25cf Offline</span>'}
+  else jf.innerHTML='<span style="color:var(--muted)">Not configured</span>';
+
+  if(d.proxy){G("pxs").textContent=d.proxy.active_streams||0;G("pxc").textContent=d.proxy.active_clients||0;G("pxch").textContent=F(d.proxy.channels_loaded);
+    if(d.proxy.running){G("px1").style.display="none";G("px2").style.display="";G("pxu").innerHTML="M3U: <a href='/proxy/playlist.m3u'>http://"+location.host+"/proxy/playlist.m3u</a><br>EPG: <a href='/proxy/epg.xml'>http://"+location.host+"/proxy/epg.xml</a>"}
+    else{G("px1").style.display="";G("px2").style.display="none";G("pxu").textContent="Start proxy to see URLs."}}
+}).catch(function(e){console.error(e)})}
+
+function doScan(){A("/api/scan",{method:"POST"});T("Scan started")}
+function doStop(){A("/api/scan/stop",{method:"POST"});T("Stop requested")}
+function doJF(){A("/api/jellyfin/scan",{method:"POST"}).then(function(d){T(d.success?"Jellyfin rescan triggered":(d.error||"Failed"),d.success)})}
+
+function ldC(t,el){catT=t;document.querySelectorAll(".ctb div").forEach(function(x){x.classList.remove("a")});if(el)el.classList.add("a");
+  G("clist").innerHTML='<p style="color:var(--muted);grid-column:1/-1">Loading...</p>';
+  A("/api/categories/"+t).then(function(d){catD=d;cR()}).catch(function(){G("clist").innerHTML='<p class="rd">Failed</p>'})}
+function cR(){var q=G("cq").value.toLowerCase(),f=catD.filter(function(c){return c.name.toLowerCase().indexOf(q)>=0});
+  G("cn").textContent=catD.filter(function(c){return c.selected}).length+"/"+catD.length;
+  G("clist").innerHTML=f.map(function(c){return '<label class="ci '+(c.selected?"s":"")+'"><input type="checkbox" '+(c.selected?"checked":"")+" onchange=\"cT('"+c.id+"')\">"+c.name+"</label>"}).join("")}
+function cT(id){var c=catD.find(function(x){return x.id===id});if(c)c.selected=!c.selected;cR()}
+function cAll(){catD.forEach(function(c){c.selected=true});cR()}
+function cNone(){catD.forEach(function(c){c.selected=false});cR()}
+function cSave(){var ids=catD.filter(function(c){return c.selected}).map(function(c){return c.id});
+  var k=catT==="vod"?"vod_category_ids":catT==="series"?"series_category_ids":"live_category_ids";
+  var b={};b[k]=ids;A("/api/categories/save",{method:"POST",body:JSON.stringify(b)});T("Saved")}
+
+function esc(s){return(s||"").replace(/'/g,"\\'").replace(/"/g,"&quot;")}
+function ldPr(){A("/api/providers").then(function(p){var h="";
+  p.forEach(function(x){h+='<div class="pc"><div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px"><div><b>'+x.name+(x.id===0?' <span class="badge bg-b">Primary</span>':"")+"</b><br><span style='font-size:11px;color:var(--muted)'>"+x.server+" - "+x.username+'</span></div><div class="bgrp"><button class="btn bsm bs" onclick="edP('+x.id+",'"+esc(x.name)+"','"+esc(x.server)+"','"+esc(x.username)+"')\">Edit</button>"+(x.id>0?'<button class="btn bsm bd" onclick="delP('+x.id+",'"+esc(x.name)+"')\">Del</button>":"")+"</div></div></div>"});
+  G("plist").innerHTML=h||'<p style="color:var(--muted)">None</p>'})}
+function addP(){var d={name:G("ap-n").value,server:G("ap-s").value,username:G("ap-u").value,password:G("ap-p").value};
+  if(!d.server||!d.username||!d.password){T("Fill all fields",false);return}
+  A("/api/providers/add",{method:"POST",body:JSON.stringify(d)}).then(function(){G("apnl").style.display="none";T("Added");ldPr()})}
+function edP(id,n,s,u){G("epnl").style.display="block";G("ep-id").value=id;G("ep-n").value=n;G("ep-s").value=s;G("ep-u").value=u;G("ep-p").value="";G("ep-rw").checked=false;G("ep-r").innerHTML=""}
+function updP(){var d={id:parseInt(G("ep-id").value),name:G("ep-n").value,server:G("ep-s").value,username:G("ep-u").value,password:G("ep-p").value,rewrite_files:G("ep-rw").checked};
+  G("ep-r").innerHTML='<span class="bl">Saving...</span>';
+  A("/api/providers/update",{method:"POST",body:JSON.stringify(d)}).then(function(r){G("ep-r").innerHTML=r.results?'<span class="gn">Done!</span> '+r.results.movies_updated+" movies, "+r.results.episodes_updated+" episodes":'<span class="gn">Saved</span>';T("Updated");ldPr()})}
+function delP(id,n){if(!confirm("Delete "+n+"?"))return;A("/api/providers/delete",{method:"POST",body:JSON.stringify({id:id})}).then(function(){T("Deleted");ldPr()})}
+
+function pxOn(){A("/api/proxy/start",{method:"POST"}).then(function(){T("Started");poll()})}
+function pxOff(){A("/api/proxy/stop",{method:"POST"}).then(function(){T("Stopped");poll()})}
+
+function ldH(){A("/api/history").then(function(d){var tb=G("hb");
+  if(!d.length){tb.innerHTML='<tr><td colspan="6" style="color:var(--muted)">None</td></tr>';return}
+  tb.innerHTML=d.reverse().slice(0,20).map(function(h){return "<tr><td>"+(h.started_at?new Date(h.started_at).toLocaleString():"-")+"</td><td>"+(h.duration||"-")+"</td><td>"+F(h.new_movies)+"</td><td>"+F(h.new_episodes)+"</td><td>"+F(h.live_channels||h.new_channels)+'</td><td><span class="badge '+(!(h.errors&&h.errors.length)?"bg-g":"bg-r")+'">'+(!(h.errors&&h.errors.length)?"OK":h.errors.length+" err")+"</span></td></tr>"}).join("")})}
+
+function ldL(){A("/api/logs").then(function(d){var el=G("lo");el.innerHTML=(d.lines||[]).map(function(l){return '<div class="'+(l.indexOf("ERROR")>=0?"e":l.indexOf("WARNING")>=0?"w":l.indexOf("INFO")>=0?"i":"")+'">'+l.replace(/</g,"&lt;").trimEnd()+"</div>"}).join("");el.scrollTop=el.scrollHeight})}
+
+function ldSt(){A("/api/settings").then(function(s){G("si-tmdb").value=s.tmdb_api_key||"";G("si-jfu").value=s.jellyfin_url||"";G("si-jfk").value=s.jellyfin_api_key||"";G("si-jfa").checked=s.jellyfin_auto_rescan!==false;G("si-st").value=s.scan_time||"03:30";G("si-sf").value=s.scan_frequency||"daily";G("si-se").checked=s.scan_enabled===true})}
+function saveSt(){A("/api/settings",{method:"POST",body:JSON.stringify({tmdb_api_key:G("si-tmdb").value,jellyfin_url:G("si-jfu").value,jellyfin_api_key:G("si-jfk").value,jellyfin_auto_rescan:G("si-jfa").checked,scan_time:G("si-st").value,scan_frequency:G("si-sf").value,scan_enabled:G("si-se").checked})}).then(function(){T("Saved")})}
+
+poll();setInterval(poll,3000);
+</script></body></html>
