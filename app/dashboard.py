@@ -58,6 +58,8 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
                         "step_label": "TMDB enrichment", "percent": 10, "details": "Enriching new items..."})
                     enrich_result = enricher.enrich_new_items_only(scanner.state, stats)
                     app.last_enrich = enrich_result
+                    scanner._save_state()  # persist TMDB IDs written back to state
+                    scanner._enrichment_cache = None  # force counter refresh
                     scanner.progress.update({"percent": 80, "details": f"Building collections... ({enrich_result.get('enriched',0)} enriched)"})
                     enricher.build_collections(scanner.state)
                     scanner.progress.update({"percent": 100, "details": "TMDB done"})
@@ -145,6 +147,22 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
             return jsonify({"error": "TMDB not configured"}), 400
         r = enricher.enrich_library(scanner.state)
         return jsonify({"message": "Done", **r})
+
+    @app.route("/api/scan/dedup", methods=["POST"])
+    def api_dedup():
+        if app.scan_running:
+            return jsonify({"error": "Scan already running"}), 409
+        if not scanner:
+            return jsonify({"error": "Scanner not available"}), 400
+        def _do_dedup():
+            result = scanner.dedup_sweep()
+            app.last_dedup = {
+                "movies": result.get("movies", 0),
+                "series": result.get("series", 0),
+                "total": result.get("movies", 0) + result.get("series", 0),
+            }
+        threading.Thread(target=_do_dedup, daemon=True).start()
+        return jsonify({"message": "Dedup started"})
 
     @app.route("/api/jellyfin/scan", methods=["POST"])
     def api_jf_scan():

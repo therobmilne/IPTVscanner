@@ -78,22 +78,50 @@ def clean_title(title: str) -> str:
     """Remove provider prefixes, quality tags, language codes, country codes for clean TMDB matching."""
     cleaned = title
 
-    # --- Step 1: Remove provider prefixes ---
-    # Handle "-AMZ - Title", "AMZ - Title", "-NF - Title", "NF - Title", etc.
-    # Common prefixes: AMZ, NF, A+, DWA, HBO, EN, DIS, APL, VIA, DSC, SKY, PCK, SHO, PMT, UNI, MRV, JB
-    cleaned = re.sub(
-        r'^-?\s*(?:AMZ|NF|A\+|DWA|HBO|DIS|APL|VIA|DSC|SKY|PCK|SHO|PMT|UNI|MRV|JB|AMZN|NFLX|DSNP|ATVP|HMAX)\s*[-–:]\s*',
-        '', cleaned, flags=re.IGNORECASE
+    # --- Step 1: Remove provider prefixes (loop handles chains like "AMZ - 4K - Title") ---
+    # Short provider codes
+    _CODES = (
+        r'AMZ|AMZN|NF|NFLX|DIS|DSNP|DPLUS|D\+|APL|ATVP|ATV|'
+        r'HBO|HMAX|HLU|PCK|PCCK|SHO|PMT|PRMNT|UNI|MRV|JB|'
+        r'VIA|DSC|SKY|DWA|A\+|ESPN\+?|AMC\+?'
     )
-    # Handle longer prefixes like "NETFLIX - ", "AMAZON - ", etc.
-    cleaned = re.sub(
-        r'^-?\s*(?:NETFLIX|AMAZON|DISNEY|APPLE|HBO MAX|HBO|HULU|PARAMOUNT|PEACOCK|'
-        r'MARVEL|UNIVERSAL|DREAMWORKS|VIAPLAY|DISCOVERY|SHOWTIME|SKY|NICKELODEON|'
-        r'SOCCER|JAMES BOND)\+?\s*[-–:]\s*',
-        '', cleaned, flags=re.IGNORECASE
+    # Full platform names (longest-match first to avoid partial matches)
+    _NAMES = (
+        r'NETFLIX|AMAZON\s+PRIME\s+VIDEO|AMAZON\s+PRIME|PRIME\s+VIDEO|AMAZON|PRIME|'
+        r'DISNEY\s+PLUS|DISNEY\+|DISNEY|'
+        r'APPLE\s+TV\+|APPLE\s+TV\s+PLUS|APPLE\s+TV|APPLE|'
+        r'HBO\s+MAX|HBO\s+GO|HBO|MAX|'
+        r'HULU|PARAMOUNT\+|PARAMOUNT\s+PLUS|PARAMOUNT|'
+        r'PEACOCK|SHOWTIME|STARZ|'
+        r'DISCOVERY\+|DISCOVERY\s+PLUS|DISCOVERY|'
+        r'ESPN\+?|AMC\+?|BBC\s+IPLAYER|BBC|ITV|CHANNEL\s+4|'
+        r'SKY|NOW\s+TV|TUBI|CRACKLE|'
+        r'MARVEL|UNIVERSAL|DREAMWORKS|NICKELODEON|VIAPLAY'
     )
-    # Handle 2-letter language/country prefixes: "EN - Title", "LT - Title"
-    cleaned = re.sub(r'^-?\s*[A-Z]{2}\s*[-–]\s*', '', cleaned)
+    # Separator pattern: space-dash-space, colon, dash, pipe, or just whitespace
+    _SEP = r'\s*[-–:|]\s*'
+
+    for _ in range(4):  # up to 4 passes for chains like "AMZ - NF - 4K - Title"
+        prev = cleaned
+        # Bracket/paren-wrapped codes: [AMZ] Title, (NF) Title
+        cleaned = re.sub(
+            r'^\s*[\[(]\s*(?:' + _CODES + r'|' + _NAMES + r')\s*[\])]\s*' + r'(?:' + _SEP + r')?',
+            '', cleaned, flags=re.IGNORECASE
+        )
+        # Code with separator: -AMZ - Title, AMZ: Title, AMZ | Title
+        cleaned = re.sub(
+            r'^-?\s*(?:' + _CODES + r')' + _SEP,
+            '', cleaned, flags=re.IGNORECASE
+        )
+        # Full name with separator: Netflix - Title, Amazon Prime - Title
+        cleaned = re.sub(
+            r'^-?\s*(?:' + _NAMES + r')\+?' + _SEP,
+            '', cleaned, flags=re.IGNORECASE
+        )
+        # 2-letter language/country code with separator: "EN - Title", "LT - Title"
+        cleaned = re.sub(r'^-?\s*[A-Z]{2}\s*[-–|]\s*', '', cleaned)
+        if cleaned == prev:
+            break  # nothing changed, stop early
 
     # Handle collection/category prefixes still in the title like "IMDB TOP 250 - Title", "NEW RELEASE - Title"
     cleaned = re.sub(
@@ -953,10 +981,114 @@ class IPTVScanner:
         logger.info(f"Removed {removed['movies']} movies, {removed['episodes']} episodes")
         return removed
 
+    def backfill_clean_titles(self) -> int:
+        """Rename on-disk folders/files where stored titles still carry platform prefixes.
+        Updates state title, strm_path, and strm_dir so dedup_sweep can match old+new entries."""
+        changed = 0
+
+        movies_dir = Path(self.paths.get("movies", ""))
+        # --- Movies ---
+        for sid, info in list(self.state.get("movies", {}).items()):
+            stored_title = info.get("title", "")
+            clean = clean_title(stored_title)
+            if clean == stored_title:
+                continue  # already clean
+
+            strm_path = Path(info.get("strm_path", ""))
+            if not strm_path.exists():
+                # Just update state, disk already gone/renamed
+                info["title"] = clean
+                changed += 1
+                continue
+
+            year = info.get("year", "")
+            safe = sanitize_filename(clean)
+            new_folder_name = f"{safe} ({year})" if year else safe
+            old_folder = strm_path.parent
+            new_folder = old_folder.parent / new_folder_name
+
+            if old_folder == new_folder:
+                info["title"] = clean
+                changed += 1
+                continue
+
+            try:
+                if new_folder.exists():
+                    # Collision – just update state, leave files alone
+                    info["title"] = clean
+                    changed += 1
+                    continue
+                old_folder.rename(new_folder)
+                # Update all files inside (rename strm and nfo to match new folder name)
+                for f in list(new_folder.iterdir()):
+                    stem_clean = f.stem  # old stem — may still carry dirty name
+                    new_stem = new_folder_name
+                    if f.suffix in (".strm", ".nfo") and stem_clean != new_stem:
+                        f.rename(new_folder / f"{new_stem}{f.suffix}")
+                new_strm = new_folder / f"{new_folder_name}.strm"
+                info["title"] = clean
+                info["strm_path"] = str(new_strm)
+                changed += 1
+                logger.debug(f"Backfill movie: '{stored_title}' → '{clean}'")
+            except Exception as e:
+                logger.warning(f"Backfill rename failed for movie {sid}: {e}")
+
+        # --- Series ---
+        # Build episode index keyed by series_id
+        eps_by_series: dict[str, list[str]] = {}
+        for ep_id, ep_info in self.state.get("episodes", {}).items():
+            s_id = ep_info.get("series_id", "")
+            if s_id:
+                eps_by_series.setdefault(s_id, []).append(ep_id)
+
+        series_dir = Path(self.paths.get("series", ""))
+        for sid, info in list(self.state.get("series", {}).items()):
+            stored_title = info.get("title", "")
+            clean = clean_title(stored_title)
+            if clean == stored_title:
+                continue
+
+            year = info.get("year", "")
+            safe = sanitize_filename(clean)
+            new_folder_name = f"{safe} ({year})" if year else safe
+
+            stored_dir = info.get("strm_dir", "")
+            old_folder = Path(stored_dir) if stored_dir else None
+
+            if old_folder and old_folder.exists():
+                new_folder = old_folder.parent / new_folder_name
+                if old_folder != new_folder:
+                    try:
+                        if not new_folder.exists():
+                            old_folder.rename(new_folder)
+                            # Update episode strm_paths
+                            old_str = str(old_folder)
+                            new_str = str(new_folder)
+                            for ep_id in eps_by_series.get(sid, []):
+                                ep_info = self.state.get("episodes", {}).get(ep_id)
+                                if ep_info:
+                                    ep_path = ep_info.get("strm_path", "")
+                                    if ep_path.startswith(old_str):
+                                        ep_info["strm_path"] = new_str + ep_path[len(old_str):]
+                            info["strm_dir"] = new_str
+                    except Exception as e:
+                        logger.warning(f"Backfill rename failed for series {sid}: {e}")
+
+            info["title"] = clean
+            changed += 1
+            logger.debug(f"Backfill series: '{stored_title}' → '{clean}'")
+
+        if changed:
+            self._save_state()
+            logger.info(f"Backfill clean titles: updated {changed} entries")
+        return changed
+
     def dedup_sweep(self, stats: ScanStats = None) -> dict:
         """Post-scan sweep: find and remove any remaining duplicates in library.
         Uses aggressive normalization + TMDB ID matching. Keeps highest quality."""
         logger.info("=== Running post-scan dedup sweep ===")
+        # First pass: rename any on-disk folders that still have platform prefixes
+        self.backfill_clean_titles()
         removed = {"movies": 0, "series": 0}
 
         # ------------------------------------------------------------------ helpers
@@ -997,7 +1129,7 @@ class IPTVScanner:
         tmdb_map = {}   # tmdb_id -> [(sid, quality)]
 
         for sid, info in list(self.state.get("movies", {}).items()):
-            t = info.get("title", "")
+            t = clean_title(info.get("title", ""))  # normalize through clean_title so old dirty titles match
             y = info.get("year", "")
             q = info.get("quality", 720)
             tid = info.get("tmdb_id")
@@ -1049,7 +1181,7 @@ class IPTVScanner:
         series_title_map = {}
         series_tmdb_map = {}
         for sid, info in list(self.state.get("series", {}).items()):
-            t = info.get("title", "")
+            t = clean_title(info.get("title", ""))  # normalize through clean_title so old dirty titles match
             y = info.get("year", "")
             q = info.get("quality", 720)
             tid = info.get("tmdb_id")
@@ -1114,9 +1246,32 @@ class IPTVScanner:
                 except Exception:
                     pass
 
-        # Enrichment stats: how many have TMDB IDs (provider sends 0 or null for unmatched)
-        movies_with_tmdb = sum(1 for m in movies.values() if m.get("tmdb_id") and str(m.get("tmdb_id", "")) not in ("0", "", "None"))
-        series_with_tmdb = sum(1 for s in series.values() if s.get("tmdb_id") and str(s.get("tmdb_id", "")) not in ("0", "", "None"))
+        # Use cached enrichment counts if fresh (avoids repeated disk hits every poll)
+        now = time.time()
+        cache = getattr(self, "_enrichment_cache", None)
+        if cache and now - cache["ts"] < 30:
+            movies_with_tmdb = cache["movies"]
+            series_with_tmdb = cache["series"]
+        else:
+            # Count enriched: TMDB ID in state OR a .nfo sidecar exists on disk
+            # (covers items enriched before the tmdb_id state-writeback fix)
+            def _has_tmdb(item: dict) -> bool:
+                tid = item.get("tmdb_id")
+                if tid and str(tid) not in ("0", "", "None"):
+                    return True
+                sp = item.get("strm_path", "")
+                return bool(sp) and Path(sp).with_suffix(".nfo").exists()
+
+            def _series_has_tmdb(item: dict) -> bool:
+                tid = item.get("tmdb_id")
+                if tid and str(tid) not in ("0", "", "None"):
+                    return True
+                sd = item.get("strm_dir", "")
+                return bool(sd) and (Path(sd) / "tvshow.nfo").exists()
+
+            movies_with_tmdb = sum(1 for m in movies.values() if _has_tmdb(m))
+            series_with_tmdb = sum(1 for s in series.values() if _series_has_tmdb(s))
+            self._enrichment_cache = {"ts": now, "movies": movies_with_tmdb, "series": series_with_tmdb}
 
         return {
             "movies": len(movies),

@@ -453,6 +453,7 @@ class TMDBEnricher:
             if tmdb_info:
                 tmdb_info["tags"] = movie.get("tags", [])
                 if self.write_movie_nfo(tmdb_info, nfo_path):
+                    movie["tmdb_id"] = tmdb_info.get("id")
                     enriched += 1
                     consecutive_errors = 0  # Reset on success
             elif tmdb_info is None:
@@ -535,6 +536,7 @@ class TMDBEnricher:
             if tmdb_info:
                 tmdb_info["tags"] = movie.get("tags", [])
                 if self.write_movie_nfo(tmdb_info, nfo_path):
+                    movie["tmdb_id"] = tmdb_info.get("id")
                     enriched += 1
                 else:
                     failed += 1
