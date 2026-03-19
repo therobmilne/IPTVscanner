@@ -168,6 +168,62 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
         threading.Thread(target=_do_dedup, daemon=True).start()
         return jsonify({"message": "Dedup started"})
 
+    @app.route("/api/library")
+    def api_library():
+        platform = request.args.get("platform", "")
+        ctype = request.args.get("type", "movies")
+        q = request.args.get("search", "").lower()
+        pg = int(request.args.get("page", 1))
+        pp = int(request.args.get("per_page", 60))
+        if ctype not in ("movies", "series"):
+            ctype = "movies"
+        result = []
+        for sid, info in scanner.state.get(ctype, {}).items():
+            if platform and info.get("platform", "") != platform:
+                continue
+            t = info.get("title", "") or info.get("name", "")
+            if q and q not in t.lower():
+                continue
+            result.append({
+                "id": sid,
+                "title": t,
+                "year": info.get("year", ""),
+                "platform": info.get("platform", ""),
+                "tags": info.get("tags", []),
+                "cover": info.get("poster_url") or info.get("stream_icon", "") or info.get("cover", ""),
+                "quality": info.get("quality", 720),
+                "tmdb_id": info.get("tmdb_id"),
+            })
+        result.sort(key=lambda x: x.get("title", "").lower())
+        total = len(result)
+        start = (pg - 1) * pp
+        return jsonify({"total": total, "page": pg, "per_page": pp, "items": result[start:start + pp]})
+
+    @app.route("/api/platforms")
+    def api_platforms():
+        ctype = request.args.get("type", "movies")
+        counts = {}
+        for sid, info in scanner.state.get(ctype, {}).items():
+            p = info.get("platform", "")
+            if p:
+                counts[p] = counts.get(p, 0) + 1
+        return jsonify(dict(sorted(counts.items(), key=lambda x: x[1], reverse=True)))
+
+    @app.route("/api/library/set-platform", methods=["POST"])
+    def api_lib_set_platform():
+        d = request.json or {}
+        sid = str(d.get("id", ""))
+        ctype = d.get("type", "movies")
+        platform = d.get("platform", "")
+        if ctype not in ("movies", "series"):
+            return jsonify({"error": "Invalid type"}), 400
+        if sid and sid in scanner.state.get(ctype, {}):
+            scanner.state[ctype][sid]["platform"] = platform
+            scanner._save_state()
+            scanner._enrichment_cache = None
+            return jsonify({"message": "Updated"})
+        return jsonify({"error": "Not found"}), 404
+
     @app.route("/api/jellyfin/scan", methods=["POST"])
     def api_jf_scan():
         if not jellyfin or not jellyfin.enabled:

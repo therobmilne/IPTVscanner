@@ -168,6 +168,40 @@ def clean_title(title: str) -> str:
     return cleaned if cleaned else title.strip()
 
 
+# Ordered longest-match first to avoid partial hits (e.g. "PRIME" before "AMAZON PRIME")
+_PLATFORM_MAP = [
+    ("Amazon Prime",  r'^-?\s*(?:AMZ|AMZN|AMAZON(?:\s+PRIME(?:\s+VIDEO)?)?|PRIME(?:\s+VIDEO)?)\s*[-–:|]|^\s*[\[(]\s*(?:AMZ|AMZN)\s*[\])]'),
+    ("Netflix",       r'^-?\s*(?:NF|NFLX|NETFLIX)\s*[-–:|]|^\s*[\[(]\s*(?:NF|NFLX)\s*[\])]'),
+    ("Disney+",       r'^-?\s*(?:DIS|DSNP|DPLUS|D\+|DISNEY(?:\+|\s+PLUS)?)\s*[-–:|]|^\s*[\[(]\s*(?:DIS|DSNP|DPLUS)\s*[\])]'),
+    ("Apple TV+",     r'^-?\s*(?:APL|ATVP|ATV|APPLE\s+TV(?:\+|\s+PLUS)?)\s*[-–:|]|^\s*[\[(]\s*(?:APL|ATVP|ATV)\s*[\])]'),
+    ("HBO Max",       r'^-?\s*(?:HMAX|HBO\s*MAX|HBO\s*GO|HBO)\s*[-–:|]|^\s*[\[(]\s*(?:HBO|HMAX)\s*[\])]'),
+    ("Hulu",          r'^-?\s*(?:HLU|HULU)\s*[-–:|]|^\s*[\[(]\s*HLU\s*[\])]'),
+    ("Peacock",       r'^-?\s*(?:PCK|PCCK|PEACOCK)\s*[-–:|]|^\s*[\[(]\s*(?:PCK|PCCK)\s*[\])]'),
+    ("Showtime",      r'^-?\s*(?:SHO|SHOWTIME)\s*[-–:|]|^\s*[\[(]\s*SHO\s*[\])]'),
+    ("Paramount+",    r'^-?\s*(?:PMT|PRMNT|PARAMOUNT(?:\+|\s+PLUS)?)\s*[-–:|]|^\s*[\[(]\s*(?:PMT|PRMNT)\s*[\])]'),
+    ("Starz",         r'^-?\s*(?:STZ|STARZ?)\s*[-–:|]|^\s*[\[(]\s*STZ\s*[\])]'),
+    ("Discovery+",    r'^-?\s*(?:DSC|DISCOVERY(?:\+|\s+PLUS)?)\s*[-–:|]|^\s*[\[(]\s*DSC\s*[\])]'),
+    ("ESPN+",         r'^-?\s*ESPN\+?\s*[-–:|]|^\s*[\[(]\s*ESPN\s*[\])]'),
+    ("AMC+",          r'^-?\s*AMC\+?\s*[-–:|]|^\s*[\[(]\s*AMC\s*[\])]'),
+    ("BBC",           r'^-?\s*BBC\s*[-–:|]|^\s*[\[(]\s*BBC\s*[\])]'),
+    ("ITV",           r'^-?\s*ITV\s*[-–:|]|^\s*[\[(]\s*ITV\s*[\])]'),
+    ("Sky",           r'^-?\s*SKY\s*[-–:|]|^\s*[\[(]\s*SKY\s*[\])]'),
+    ("Now TV",        r'^-?\s*NOW\s*TV\s*[-–:|]'),
+    ("Tubi",          r'^-?\s*TUBI\s*[-–:|]|^\s*[\[(]\s*TUBI\s*[\])]'),
+    ("Viaplay",       r'^-?\s*(?:VIA|VIAPLAY)\s*[-–:|]'),
+    ("Marvel",        r'^-?\s*(?:MRV|MARVEL)\s*[-–:|]|^\s*[\[(]\s*MRV\s*[\])]'),
+]
+_PLATFORM_MAP_COMPILED = [(name, re.compile(pat, re.IGNORECASE)) for name, pat in _PLATFORM_MAP]
+
+
+def detect_platform_from_name(name: str) -> str:
+    """Detect streaming platform from provider title prefix (e.g. 'AMZ - Title' → 'Amazon Prime')."""
+    for platform, pattern in _PLATFORM_MAP_COMPILED:
+        if pattern.search(name):
+            return platform
+    return ""
+
+
 class ScanStats:
     """Track statistics for a scan run."""
 
@@ -443,6 +477,7 @@ class IPTVScanner:
                 continue
 
             # Build metadata
+            platform = detect_platform_from_name(name)
             title = clean_title(name)
             year = extract_year(name) or vod.get("year", "")
             quality = detect_quality(name, cat_name)
@@ -525,6 +560,7 @@ class IPTVScanner:
                     "year": year,
                     "quality": quality,
                     "category": cat_name,
+                    "platform": platform,
                     "tags": self.category_tags.get(cat_id, []),
                     "stream_url": stream_url,
                     "strm_path": str(strm_path),
@@ -670,6 +706,7 @@ class IPTVScanner:
                         episodes_data.setdefault(sn, []).append(ep)
                 # else: skip - no usable episode data
 
+                platform = detect_platform_from_name(name)
                 title = clean_title(name)
                 try:
                     year = extract_year(name) or (series_info.get("releaseDate", "")[:4] if series_info.get("releaseDate") else "")
@@ -769,10 +806,12 @@ class IPTVScanner:
                     "year": year,
                     "quality": quality,
                     "category": cat_name,
+                    "platform": platform,
                     "tags": self.category_tags.get(cat_id, []),
                     "episode_count": episode_count,
                     "tmdb_id": tmdb_id,
                     "cover": series_info.get("cover", ""),
+                    "stream_icon": series_info.get("cover", ""),
                     "added_at": datetime.now(timezone.utc).isoformat(),
                     "fully_scanned": True,
                     "strm_dir": str(series_dir / show_folder),
@@ -1044,6 +1083,15 @@ class IPTVScanner:
         movies_dir = Path(self.paths.get("movies", ""))
         # --- Movies ---
         for sid, info in list(self.state.get("movies", {}).items()):
+            # Backfill platform tag for existing entries that predate this feature
+            if not info.get("platform"):
+                orig = info.get("name", "")
+                if orig:
+                    p = detect_platform_from_name(orig)
+                    if p:
+                        info["platform"] = p
+                        changed += 1
+
             stored_title = info.get("title", "")
             clean = clean_title(stored_title)
             if clean == stored_title:
@@ -1098,6 +1146,15 @@ class IPTVScanner:
 
         series_dir = Path(self.paths.get("series", ""))
         for sid, info in list(self.state.get("series", {}).items()):
+            # Backfill platform tag for existing entries that predate this feature
+            if not info.get("platform"):
+                orig = info.get("name", "")
+                if orig:
+                    p = detect_platform_from_name(orig)
+                    if p:
+                        info["platform"] = p
+                        changed += 1
+
             stored_title = info.get("title", "")
             clean = clean_title(stored_title)
             if clean == stored_title:

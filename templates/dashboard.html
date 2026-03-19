@@ -58,12 +58,40 @@
 .toast{position:fixed;bottom:16px;right:16px;padding:10px 16px;border-radius:7px;background:var(--bg3);border:1px solid var(--border);font-size:12px;z-index:999;animation:si .3s}.toast.ok{border-color:var(--green)}.toast.er{border-color:var(--red)}
 @keyframes si{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
 .hamburger{display:none;background:none;border:none;color:var(--text);font-size:22px;cursor:pointer}
+.lib-plats{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px;padding-bottom:10px;border-bottom:1px solid var(--border)}
+.lpt{padding:4px 14px;border-radius:20px;font-size:11px;font-weight:500;cursor:pointer;background:var(--bg2);border:1px solid var(--border);color:var(--muted);transition:.15s;white-space:nowrap}
+.lpt:hover{border-color:var(--accent);color:var(--text)}.lpt.a{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:600}
+.lib-bar{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:12px}
+.lc{background:var(--bg2);border:1px solid var(--border);border-radius:8px;overflow:hidden;transition:transform .15s,border-color .15s,box-shadow .15s;cursor:pointer;position:relative}
+.lc:hover{transform:translateY(-3px);border-color:rgba(56,189,248,.5);box-shadow:0 6px 20px rgba(0,0,0,.4)}
+.lc-img{width:100%;aspect-ratio:2/3;object-fit:cover;display:block;background:var(--bg3)}
+.lc-ph{width:100%;aspect-ratio:2/3;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:36px}
+.lc-body{padding:8px 8px 10px}
+.lc-title{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-bottom:3px}
+.lc-year{font-size:10px;color:var(--muted);margin-bottom:3px}
+.lc-plat{display:inline-block;font-size:9px;padding:2px 6px;border-radius:3px;font-weight:700;letter-spacing:.3px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lc-noplat{display:inline-block;font-size:9px;padding:2px 6px;border-radius:3px;color:var(--muted);border:1px dashed var(--border);cursor:pointer}
+.lc-edit{position:absolute;top:5px;right:5px;background:rgba(0,0,0,.65);backdrop-filter:blur(2px);border:none;color:#fff;border-radius:5px;width:24px;height:24px;font-size:12px;cursor:pointer;display:none;align-items:center;justify-content:center;transition:.15s}
+.lc:hover .lc-edit{display:flex}.lc-edit:hover{background:var(--accent);color:var(--bg)}
+.lib-modal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center}
+.lib-modal.open{display:flex}
+.lib-modal-box{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:0;max-width:360px;width:92%;overflow:hidden;position:relative}
+.lmb-cover{width:100%;height:200px;object-fit:cover;display:block;background:var(--bg3)}
+.lmb-ph{width:100%;height:140px;display:flex;align-items:center;justify-content:center;background:var(--bg3);font-size:48px}
+.lmb-body{padding:16px}
+.lmb-close{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.6);border:none;color:#fff;border-radius:50%;width:28px;height:28px;font-size:16px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.plat-sel{display:flex;flex-wrap:wrap;gap:5px;margin:8px 0}
+.plat-opt{padding:4px 10px;border-radius:4px;font-size:10px;font-weight:600;cursor:pointer;border:1px solid var(--border);background:var(--bg);color:var(--muted);transition:.15s}
+.plat-opt:hover{border-color:var(--accent)}.plat-opt.sel{border-color:transparent}
+@media(max-width:768px){.lib-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px}}
+@media(max-width:480px){.lib-grid{grid-template-columns:repeat(3,1fr);gap:6px}}
 @media(max-width:768px){.sb{transform:translateX(-100%);width:240px;z-index:100}.sb.open{transform:translateX(0)}.mn{margin-left:0}.hamburger{display:block}.sg{grid-template-columns:1fr 1fr}.fr,.fr3{grid-template-columns:1fr}.cl{grid-template-columns:1fr}.hd{padding:10px 14px}.ct{padding:14px}}
 @media(max-width:480px){.sg{grid-template-columns:1fr}}
 </style></head><body>
 <div class="app">
 <div class="sb" id="sb"><div class="logo"><span>IPTV</span> Stream Mgr</div><div class="nav">
-<div class="ni a" data-page="dashboard">Dashboard</div><div class="ni" data-page="categories">Categories</div><div class="ni" data-page="providers">Providers</div><div class="ni" data-page="proxy">Proxy</div><div class="ni" data-page="history">History</div><div class="ni" data-page="logs">Logs</div><div class="ni" data-page="settings">Settings</div></div></div>
+<div class="ni a" data-page="dashboard">Dashboard</div><div class="ni" data-page="categories">Categories</div><div class="ni" data-page="library">Library</div><div class="ni" data-page="providers">Providers</div><div class="ni" data-page="proxy">Proxy</div><div class="ni" data-page="history">History</div><div class="ni" data-page="logs">Logs</div><div class="ni" data-page="settings">Settings</div></div></div>
 <div class="mn"><div class="hd"><div style="display:flex;align-items:center;gap:10px"><button class="hamburger" onclick="document.getElementById('sb').classList.toggle('open')">&#9776;</button><h1 id="pt">Dashboard</h1></div>
 <div class="bgrp"><button class="btn bp" id="b1" onclick="doScan()">&#9654; Scan</button><button class="btn bd bsm" id="b2" onclick="doStop()" style="display:none">&#9632; Stop</button><button class="btn bs bsm" onclick="doDedup()">&#10006;&#10006; Dedup</button><button class="btn bg bsm" onclick="doJF()">&#8635; Jellyfin</button></div></div>
 <div class="ct">
@@ -104,6 +132,24 @@
     <div class="cl" id="clist"><p style="color:var(--muted)">Select a tab above.</p></div>
   </div>
 </div></div>
+<!-- LIBRARY -->
+<div class="pg" id="page-library">
+<div class="lib-plats" id="libPlats"><div class="lpt a" data-p="" onclick="libFilt('',this)">All</div></div>
+<div class="lib-bar">
+  <div class="ctb" style="margin:0"><div class="a" id="ltm" onclick="libType('movies',this)">&#127916; Movies</div><div id="lts" onclick="libType('series',this)">&#128250; Series</div></div>
+  <input class="cs" id="libq" placeholder="Search titles..." oninput="libSearch()" style="flex:1;max-width:280px">
+  <span style="font-size:11px;color:var(--muted);white-space:nowrap" id="libCnt"></span>
+</div>
+<div class="lib-grid" id="libGrid"><p style="color:var(--muted)">Select Movies or Series above.</p></div>
+<div id="libPag" style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap;align-items:center"></div>
+</div>
+<!-- Library edit modal -->
+<div class="lib-modal" id="libMod">
+<div class="lib-modal-box" id="libModBox">
+  <button class="lmb-close" onclick="closeLibMod()">&#215;</button>
+  <div id="libModCt"></div>
+</div>
+</div>
 <!-- PROVIDERS -->
 <div class="pg" id="page-providers">
 <div class="pn"><div class="ph">Providers<button class="btn bsm bp" onclick="document.getElementById('apnl').style.display='block'">+ Add</button></div><div class="pb" id="plist">Loading...</div></div>
@@ -164,7 +210,7 @@ document.querySelectorAll(".ni").forEach(function(i){i.addEventListener("click",
   document.querySelectorAll(".ni").forEach(function(n){n.classList.remove("a")});i.classList.add("a");
   document.querySelectorAll(".pg").forEach(function(x){x.classList.remove("a")});G("page-"+i.dataset.page).classList.add("a");
   G("pt").textContent=i.textContent.trim();G("sb").classList.remove("open");
-  var p=i.dataset.page;if(p==="history")ldH();if(p==="logs")ldL();if(p==="settings")ldSt();if(p==="providers")ldPr()})});
+  var p=i.dataset.page;if(p==="history")ldH();if(p==="logs")ldL();if(p==="settings")ldSt();if(p==="providers")ldPr();if(p==="library")ldLib()})});
 
 function poll(){A("/api/status").then(function(d){
   var l=d.library||{},dd=d.dedup_stats||{};
@@ -266,6 +312,130 @@ function ldL(){A("/api/logs").then(function(d){var el=G("lo");el.innerHTML=(d.li
 
 function ldSt(){A("/api/settings").then(function(s){G("si-tmdb").value=s.tmdb_api_key||"";G("si-jfu").value=s.jellyfin_url||"";G("si-jfk").value=s.jellyfin_api_key||"";G("si-jfa").checked=s.jellyfin_auto_rescan!==false;G("si-st").value=s.scan_time||"03:30";G("si-sf").value=s.scan_frequency||"daily";G("si-se").checked=s.scan_enabled===true})}
 function saveSt(){A("/api/settings",{method:"POST",body:JSON.stringify({tmdb_api_key:G("si-tmdb").value,jellyfin_url:G("si-jfu").value,jellyfin_api_key:G("si-jfk").value,jellyfin_auto_rescan:G("si-jfa").checked,scan_time:G("si-st").value,scan_frequency:G("si-sf").value,scan_enabled:G("si-se").checked})}).then(function(){T("Saved")})}
+
+// ---- LIBRARY ----
+var PLAT_COLORS={
+  "Netflix":      {bg:"rgba(229,9,20,.18)",   bd:"rgba(229,9,20,.5)",    tx:"#ff4444"},
+  "Amazon Prime": {bg:"rgba(0,168,225,.15)",  bd:"rgba(0,168,225,.45)",  tx:"#38bdf8"},
+  "Disney+":      {bg:"rgba(80,100,230,.18)", bd:"rgba(80,100,230,.5)",  tx:"#8899ff"},
+  "HBO Max":      {bg:"rgba(124,58,237,.18)", bd:"rgba(124,58,237,.5)",  tx:"#c084fc"},
+  "Hulu":         {bg:"rgba(28,231,131,.15)", bd:"rgba(28,231,131,.4)",  tx:"#34d399"},
+  "Apple TV+":    {bg:"rgba(200,200,200,.12)",bd:"rgba(200,200,200,.3)", tx:"#ccc"},
+  "Paramount+":   {bg:"rgba(0,100,255,.15)",  bd:"rgba(0,100,255,.4)",   tx:"#6699ff"},
+  "Peacock":      {bg:"rgba(255,80,120,.15)", bd:"rgba(255,80,120,.4)",  tx:"#ff6688"},
+  "Showtime":     {bg:"rgba(200,0,0,.15)",    bd:"rgba(200,0,0,.4)",     tx:"#ff5555"},
+  "Starz":        {bg:"rgba(232,160,0,.15)",  bd:"rgba(232,160,0,.4)",   tx:"#fbbf24"},
+  "Discovery+":   {bg:"rgba(0,112,192,.15)",  bd:"rgba(0,112,192,.4)",   tx:"#60a5fa"},
+  "ESPN+":        {bg:"rgba(204,0,0,.15)",    bd:"rgba(204,0,0,.4)",     tx:"#f87171"},
+  "AMC+":         {bg:"rgba(255,200,0,.15)",  bd:"rgba(255,200,0,.4)",   tx:"#fcd34d"},
+  "BBC":          {bg:"rgba(0,50,180,.18)",   bd:"rgba(0,50,180,.5)",    tx:"#818cf8"},
+  "ITV":          {bg:"rgba(0,106,212,.15)",  bd:"rgba(0,106,212,.4)",   tx:"#38bdf8"},
+  "Sky":          {bg:"rgba(0,145,213,.15)",  bd:"rgba(0,145,213,.4)",   tx:"#7dd3fc"},
+  "Now TV":       {bg:"rgba(0,180,180,.15)",  bd:"rgba(0,180,180,.4)",   tx:"#2dd4bf"},
+  "Tubi":         {bg:"rgba(255,85,0,.15)",   bd:"rgba(255,85,0,.4)",    tx:"#fb923c"},
+  "Viaplay":      {bg:"rgba(160,40,220,.18)", bd:"rgba(160,40,220,.5)",  tx:"#c084fc"},
+  "Marvel":       {bg:"rgba(200,0,0,.15)",    bd:"rgba(200,0,0,.4)",     tx:"#f87171"},
+};
+var ALL_PLATFORMS=["Netflix","Amazon Prime","Disney+","HBO Max","Hulu","Apple TV+","Paramount+","Peacock","Showtime","Starz","Discovery+","ESPN+","AMC+","BBC","ITV","Sky","Now TV","Tubi","Viaplay","Marvel"];
+function platStyle(p){var c=PLAT_COLORS[p];if(!c)return"background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.3);color:var(--accent)";return"background:"+c.bg+";border:1px solid "+c.bd+";color:"+c.tx}
+function platBadge(p){if(!p)return'';return'<span class="lc-plat" style="'+platStyle(p)+'">'+p+'</span>'}
+
+var libCurType="movies", libCurPlat="", libCurPage=1, libSearchTm=null, libTotal=0, libItemCache={};
+var libEditId=null, libEditType=null;
+
+function ldLib(){libCurPage=1;libLoadPlats();libLoad()}
+function libType(t,el){libCurType=t;libCurPage=1;libCurPlat="";document.querySelectorAll("#ltm,#lts").forEach(function(x){x.classList.remove("a")});el.classList.add("a");libLoadPlats();libLoad()}
+function libFilt(p,el){libCurPlat=p;libCurPage=1;document.querySelectorAll(".lpt").forEach(function(x){x.classList.remove("a")});el.classList.add("a");libLoad()}
+function libSearch(){clearTimeout(libSearchTm);libSearchTm=setTimeout(function(){libCurPage=1;libLoad()},350)}
+function libPage(n){libCurPage=n;libLoad();window.scrollTo(0,0)}
+
+function libLoadPlats(){
+  A("/api/platforms?type="+libCurType).then(function(d){
+    var html='<div class="lpt a" data-p="" onclick="libFilt(\'\',this)">All <span style="opacity:.6;font-size:9px">('+Object.values(d).reduce(function(a,b){return a+b},0)+')</span></div>';
+    Object.entries(d).forEach(function(e){
+      var c=PLAT_COLORS[e[0]]||{};
+      html+='<div class="lpt" data-p="'+e[0]+'" onclick="libFilt(\''+e[0].replace(/'/g,"\\'")+'\',this)" style="'+( c.tx?"color:"+c.tx+";border-color:"+c.bd:"")+'">'+e[0]+' <span style="opacity:.6;font-size:9px">('+e[1]+')</span></div>';
+    });
+    G("libPlats").innerHTML=html;
+    document.querySelectorAll(".lpt").forEach(function(el){
+      if((el.dataset.p||"")===(libCurPlat||""))el.classList.add("a");
+    });
+  })}
+
+function libLoad(){
+  var q=G("libq")?G("libq").value:"";
+  var url="/api/library?type="+libCurType+"&page="+libCurPage+"&per_page=60"+(libCurPlat?"&platform="+encodeURIComponent(libCurPlat):"")+(q?"&search="+encodeURIComponent(q):"");
+  G("libGrid").innerHTML='<p style="color:var(--muted);grid-column:1/-1">Loading...</p>';
+  A(url).then(function(d){
+    libTotal=d.total;
+    if(d.items)d.items.forEach(function(x){libItemCache[x.id]=x;});
+    G("libCnt").textContent=d.total+" title"+(d.total!==1?"s":"");
+    if(!d.items||!d.items.length){G("libGrid").innerHTML='<p style="color:var(--muted);grid-column:1/-1">No results.</p>';G("libPag").innerHTML="";return}
+    G("libGrid").innerHTML=d.items.map(function(item){
+      var cover=item.cover&&item.cover.length>4?'<img class="lc-img" src="'+item.cover+'" loading="lazy" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'">'+'<div class="lc-ph" style="display:none">&#127916;</div>':'<div class="lc-ph">&#127916;</div>';
+      return '<div class="lc" onclick="libOpenEdit(\''+item.id+'\',event)">'
+        +'<button class="lc-edit" onclick="libOpenEdit(\''+item.id+'\',event)" title="Edit platform">&#9998;</button>'
+        +cover
+        +'<div class="lc-body">'
+        +'<div class="lc-title" title="'+item.title+'">'+item.title+'</div>'
+        +(item.year?'<div class="lc-year">'+item.year+(item.quality&&item.quality>=1080?' &middot; '+item.quality+'p':'')+'</div>':'')
+        +(item.platform?platBadge(item.platform):'<span class="lc-noplat" onclick="libOpenEdit(\''+item.id+'\',event)">+ platform</span>')
+        +'</div></div>';
+    }).join("");
+    // Pagination
+    var totalPages=Math.ceil(d.total/60);
+    var pag="";
+    if(totalPages>1){
+      if(libCurPage>1)pag+='<button class="btn bsm bs" onclick="libPage('+(libCurPage-1)+')">&#8592;</button>';
+      var start=Math.max(1,libCurPage-2),end=Math.min(totalPages,libCurPage+2);
+      for(var i=start;i<=end;i++)pag+='<button class="btn bsm '+(i===libCurPage?"bp":"bs")+'" onclick="libPage('+i+')">'+i+'</button>';
+      if(libCurPage<totalPages)pag+='<button class="btn bsm bs" onclick="libPage('+(libCurPage+1)+')">&#8594;</button>';
+      pag+='<span style="font-size:10px;color:var(--muted)">Page '+libCurPage+' of '+totalPages+'</span>';
+    }
+    G("libPag").innerHTML=pag;
+  }).catch(function(){G("libGrid").innerHTML='<p class="rd">Failed to load</p>'})}
+
+function libOpenEdit(id,ev){
+  if(ev)ev.stopPropagation();
+  libEditId=id;libEditType=libCurType;
+  function _render(item){
+    if(!item)return;
+    var cover=item.cover&&item.cover.length>4?'<img class="lmb-cover" src="'+item.cover+'" onerror="this.style.display=\'none\'">':'<div class="lmb-ph">&#127916;</div>';
+    var opts=ALL_PLATFORMS.map(function(p){
+      var sel=p===item.platform;
+      return '<div class="plat-opt'+(sel?" sel":"")+'" style="'+(sel?platStyle(p):"")+'" onclick="libSetPlatOpt(\''+p.replace(/'/g,"\\'")+'\',this)">'+p+'</div>';
+    }).join("");
+    var html=cover+'<div class="lmb-body">'
+      +'<div style="font-size:14px;font-weight:700;margin-bottom:2px">'+item.title+'</div>'
+      +'<div style="font-size:11px;color:var(--muted);margin-bottom:12px">'+(item.year||"")+(item.quality?" &middot; "+item.quality+"p":"")+'</div>'
+      +'<div style="font-size:11px;font-weight:600;margin-bottom:6px;color:var(--muted)">STREAMING PLATFORM</div>'
+      +'<div class="plat-sel">'+opts+'<div class="plat-opt" onclick="libSetPlatOpt(\'\',this)" style="'+(item.platform?"":"border-color:var(--accent);color:var(--accent)")+'">&#215; None</div></div>'
+      +'<div style="margin-top:8px;display:flex;gap:6px">'
+      +'<button class="btn bp" style="flex:1" onclick="libSavePlat()">Save</button>'
+      +'<button class="btn bs" onclick="closeLibMod()">Cancel</button>'
+      +'</div></div>';
+    G("libModCt").innerHTML=html;
+    G("libMod").classList.add("open");
+    libEditId=id;
+  }
+  var cached=libItemCache[id];
+  if(cached){_render(cached);}else{
+    A("/api/library?type="+libCurType+"&per_page=60").then(function(d){
+      if(d.items)d.items.forEach(function(x){libItemCache[x.id]=x;});
+      _render(libItemCache[id]);
+    });
+  }
+}
+
+var libSelectedPlat=null;
+function libSetPlatOpt(p,el){libSelectedPlat=p;document.querySelectorAll(".plat-opt").forEach(function(x){x.classList.remove("sel");x.removeAttribute("style")});if(p){el.classList.add("sel");el.style.cssText=platStyle(p)}else{el.style.cssText="border-color:var(--accent);color:var(--accent)"}}
+function libSavePlat(){
+  A("/api/library/set-platform",{method:"POST",body:JSON.stringify({id:libEditId,type:libEditType,platform:libSelectedPlat||""})})
+    .then(function(d){if(!d.error){T("Platform updated");closeLibMod();libLoad()}else T(d.error,false)});
+}
+function closeLibMod(){G("libMod").classList.remove("open");libEditId=null;libSelectedPlat=null}
+// Close modal on backdrop click
+G("libMod").addEventListener("click",function(e){if(e.target===G("libMod"))closeLibMod()});
 
 poll();setInterval(poll,3000);
 </script></body></html>

@@ -452,8 +452,12 @@ class TMDBEnricher:
             tmdb_info = self.search_movie(title, year)
             if tmdb_info:
                 tmdb_info["tags"] = movie.get("tags", [])
+                if movie.get("platform"):
+                    tmdb_info["tags"] = list(tmdb_info["tags"]) + [movie["platform"]]
                 if self.write_movie_nfo(tmdb_info, nfo_path):
                     movie["tmdb_id"] = tmdb_info.get("id")
+                    if tmdb_info.get("poster"):
+                        movie["poster_url"] = f"{TMDB_IMG_BASE}/w300{tmdb_info['poster']}"
                     enriched += 1
                     consecutive_errors = 0  # Reset on success
             elif tmdb_info is None:
@@ -493,6 +497,8 @@ class TMDBEnricher:
                 tmdb_info = self.search_tv(title, year)
                 if tmdb_info:
                     series_item["tmdb_id"] = tmdb_info.get("id")
+                    if tmdb_info.get("poster"):
+                        series_item["poster_url"] = f"{TMDB_IMG_BASE}/w300{tmdb_info['poster']}"
                     enriched += 1
                     consecutive_errors = 0
                 elif tmdb_info is None:
