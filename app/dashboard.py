@@ -24,17 +24,20 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
     app.last_enrich = {"enriched": 0, "failed": 0, "skipped": 0}
     app.scheduler = None
 
-    # Proxy
+    # Proxy — always initialize if possible, always auto-start by default
     app.proxy = None
     app.proxy_running = False
     try:
         from .restream_proxy import RestreamProxy
         app.proxy = RestreamProxy(config)
         app.proxy.load_channels()
-        # Auto-start proxy streaming if configured (default: True)
-        if config.get("proxy", {}).get("auto_start", True):
+        # Auto-start proxy streaming (default: True)
+        auto_start = config.get("proxy", {}).get("auto_start", True)
+        if auto_start:
             app.proxy_running = True
-            logger.info("Proxy auto-started (set proxy.auto_start: false in config to disable)")
+            logger.info(f"Proxy auto-started with {len(app.proxy.channel_map)} channels (set proxy.auto_start: false in config to disable)")
+    except ImportError:
+        logger.warning("Proxy: 'requests' package required — pip install requests")
     except Exception as e:
         logger.warning(f"Proxy init: {e}")
 
@@ -79,10 +82,13 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
                 except Exception as e:
                     logger.error(f"Jellyfin rescan error: {e}")
 
-            # Reload proxy
+            # Reload proxy channels after scan
             if app.proxy:
-                try: app.proxy.load_channels()
-                except: pass
+                try:
+                    app.proxy.load_channels()
+                    logger.info(f"Proxy reloaded: {len(app.proxy.channel_map)} channels")
+                except Exception as e:
+                    logger.error(f"Proxy reload after scan failed: {e}")
         except Exception as e:
             logger.exception(f"Scan failed: {e}")
         finally:
@@ -333,18 +339,34 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
 
     @app.route("/proxy/stream/<f>")
     def px_stream(f):
-        if not app.proxy or not app.proxy_running: return Response("Proxy streaming not running",status=503)
-        sk = f.split(".")[0]; cid = f"c{int(time.time()*1000)%1000000}"
+        if not app.proxy or not app.proxy_running:
+            return Response("Proxy streaming not running", status=503)
+        import queue as _queue
+        sk = f.split(".")[0]
+        cid = app.proxy.next_client_id()
         def gen():
-            a = app.proxy.get_or_create_stream(sk); q = a.add_client(cid)
+            active = None
             try:
+                active = app.proxy.get_or_create_stream(sk)
+                q = active.add_client(cid)
                 while True:
-                    try: chunk = q.get(timeout=30)
-                    except: break
-                    if chunk is None: break
+                    try:
+                        chunk = q.get(timeout=60)
+                    except _queue.Empty:
+                        if active.running:
+                            continue
+                        break
+                    if chunk is None:
+                        break
                     yield chunk
-            finally: a.remove_client(cid)
-        return Response(gen(), mimetype="video/mp2t", headers={"Cache-Control":"no-cache","Access-Control-Allow-Origin":"*"})
+            except GeneratorExit:
+                pass
+            except Exception as e:
+                logger.error(f"Proxy stream error {sk}/{cid}: {e}")
+            finally:
+                if active:
+                    active.remove_client(cid)
+        return Response(gen(), mimetype="video/mp2t", headers={"Cache-Control":"no-cache, no-store","Connection":"keep-alive","Access-Control-Allow-Origin":"*"})
 
     # --- History/Logs ---
     @app.route("/api/history")

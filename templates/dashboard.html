@@ -50,6 +50,16 @@
 .ci-ti:focus{width:100px;color:var(--text);border-color:var(--accent);background:rgba(56,189,248,.04)}.ci-ti::placeholder{color:var(--border)}
 .ctb-cnt{font-size:9px;color:var(--muted);display:block;margin-top:1px;font-weight:400}
 .cat-at{background:rgba(251,146,60,.12);border-color:rgba(251,146,60,.35);color:var(--orange)}
+.cat-lang{background:rgba(52,211,153,.12);border-color:rgba(52,211,153,.35);color:var(--green)}
+.cfb{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
+.cfb-label{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-right:4px;display:flex;align-items:center;min-width:65px}
+.cfb-row{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:6px}
+.cfb-btn{padding:3px 10px;border-radius:12px;font-size:10px;font-weight:500;cursor:pointer;background:var(--bg);border:1px solid var(--border);color:var(--muted);transition:.15s;white-space:nowrap;user-select:none}
+.cfb-btn:hover{border-color:var(--accent);color:var(--text)}
+.cfb-btn.on{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:600}
+.cfb-btn.on-lang{background:var(--green);border-color:var(--green);color:var(--bg);font-weight:600}
+.cfb-btn.on-plat{background:var(--orange);border-color:var(--orange);color:var(--bg);font-weight:600}
+.cfb-cnt{font-size:9px;opacity:.7;margin-left:2px}
 .ctb{display:flex;gap:2px;margin-bottom:12px}.ctb div{padding:6px 12px;border-radius:4px;font-size:11px;font-weight:500;cursor:pointer;background:var(--bg);border:1px solid var(--border);color:var(--muted)}.ctb div.a{background:var(--accent);color:var(--bg);border-color:var(--accent)}
 .ht{width:100%;border-collapse:collapse;font-size:11px}.ht th{text-align:left;padding:7px 10px;border-bottom:1px solid var(--border);color:var(--muted);font-size:10px;text-transform:uppercase}.ht td{padding:7px 10px;border-bottom:1px solid var(--border)}.ht tr:last-child td{border:none}
 .badge{padding:2px 6px;border-radius:3px;font-size:9px;font-weight:600;display:inline-block}.bg-g{background:rgba(52,211,153,.15);color:var(--green)}.bg-r{background:rgba(248,113,113,.15);color:var(--red)}.bg-b{background:rgba(56,189,248,.15);color:var(--accent)}
@@ -117,6 +127,8 @@
       <button class="btn bsm bs" id="cso" onclick="cSelOnly()" title="Show only selected categories">&#10003; Selected</button>
       <button class="btn bsm bs" onclick="cAll()">All</button>
       <button class="btn bsm bs" onclick="cNone()">None</button>
+      <button class="btn bsm bs" onclick="cSelFiltered()" title="Select all visible/filtered categories">&#10003; Filtered</button>
+      <button class="btn bsm bs" onclick="cInvert()" title="Invert selection">&#8645; Invert</button>
       <button class="btn bsm bp" onclick="cSave()">&#10003; Save</button>
     </div>
   </div>
@@ -125,9 +137,18 @@
       <input class="cs" id="cq" placeholder="Search categories..." oninput="cR()" style="flex:1;max-width:260px">
       <span style="font-size:11px;color:var(--muted);white-space:nowrap" id="cn"></span>
     </div>
+    <div class="cfb-row" id="cfLangRow" style="display:none">
+      <span class="cfb-label">Language</span>
+      <div class="cfb" id="cfLangs"></div>
+    </div>
+    <div class="cfb-row" id="cfPlatRow" style="display:none">
+      <span class="cfb-label">Platform</span>
+      <div class="cfb" id="cfPlats"></div>
+    </div>
     <div style="font-size:10px;color:var(--muted);margin-bottom:8px">
       <span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.3);display:inline-block"></span>custom tag</span>
-      <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(251,146,60,.12);border:1px solid rgba(251,146,60,.35);display:inline-block"></span>auto-detected platform</span>
+      <span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(251,146,60,.12);border:1px solid rgba(251,146,60,.35);display:inline-block"></span>auto-detected platform</span>
+      <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.35);display:inline-block"></span>auto-detected language</span>
     </div>
     <div class="cl" id="clist"><p style="color:var(--muted)">Select a tab above.</p></div>
   </div>
@@ -174,7 +195,7 @@ var F=function(n){return n!=null?Number(n).toLocaleString():'-'};
 function A(u,o){o=o||{};o.headers={"Content-Type":"application/json"};return fetch(u,o).then(function(r){return r.json()})}
 function T(m,ok){var e=document.createElement("div");e.className="toast "+(ok!==false?"ok":"er");e.textContent=m;document.body.appendChild(e);setTimeout(function(){e.remove()},3000)}
 function fE(s){if(!s||s<=0)return"";var h=Math.floor(s/3600),m=Math.floor(s%3600/60),sc=Math.round(s%60);return h>0?"~"+h+"h "+m+"m":m>0?"~"+m+"m "+sc+"s":"~"+sc+"s"}
-var catT="vod",catD=[],catSelOnly=false;
+var catT="vod",catD=[],catSelOnly=false,catLangFilters=[],catPlatFilters=[];
 var PLATFORMS=[
   {r:/netflix/i,t:"Netflix"},{r:/amazon|prime\s*video|amzn?/i,t:"Amazon Prime"},
   {r:/disney\+?|dsnp|disneyplus/i,t:"Disney+"},{r:/\bhbo\b|hbo\s*max|\bmax\b/i,t:"HBO Max"},
@@ -187,21 +208,79 @@ var PLATFORMS=[
   {r:/\bsky\b/i,t:"Sky"},{r:/now\s*tv/i,t:"Now TV"},
   {r:/\btubi\b/i,t:"Tubi"},{r:/crackle/i,t:"Crackle"},
   {r:/\bbravo\b/i,t:"Bravo"},{r:/\bfx\b/i,t:"FX"},
-  {r:/\bcbs\b/i,t:"CBS"},{r:/\bnbc\b/i,t:"NBC"},{r:/\babc\b/i,t:"ABC"}
+  {r:/\bcbs\b/i,t:"CBS"},{r:/\bnbc\b/i,t:"NBC"},{r:/\babc\b/i,t:"ABC"},
+  {r:/\bcrave\b/i,t:"Crave"},{r:/\bstan\b/i,t:"Stan"},{r:/\bhayu\b/i,t:"Hayu"},
+  {r:/\bmubi\b/i,t:"MUBI"},{r:/\bcrunchyroll\b/i,t:"Crunchyroll"},
+  {r:/\bfunimation\b/i,t:"Funimation"},{r:/\bshudder\b/i,t:"Shudder"},
+  {r:/\bbrit\s*box\b/i,t:"BritBox"},{r:/\bcuriositystream\b|curiosity\s*stream/i,t:"Curiosity Stream"}
+];
+var LANGUAGES=[
+  {r:/\b(?:english|eng)\b|[\|\-\s]EN[\|\-\s]|\bEN\b|\(EN\)/i,t:"English"},
+  {r:/\b(?:french|fra|fran[cç]ais)\b|[\|\-\s]FR[\|\-\s]|\bFR\b|\(FR\)/i,t:"French"},
+  {r:/\b(?:spanish|espa[nñ]ol|latino)\b|[\|\-\s]ES[\|\-\s]|\bES\b|\(ES\)/i,t:"Spanish"},
+  {r:/\b(?:german|deutsch)\b|[\|\-\s]DE[\|\-\s]|\bDE\b|\(DE\)/i,t:"German"},
+  {r:/\b(?:italian|italiano)\b|[\|\-\s]IT[\|\-\s]|\bIT\b|\(IT\)/i,t:"Italian"},
+  {r:/\b(?:portuguese|portugu[eê]s|brasil)\b|[\|\-\s]PT[\|\-\s]|\bPT\b|\(PT\)|\bBR\b/i,t:"Portuguese"},
+  {r:/\b(?:dutch|nederlands)\b|[\|\-\s]NL[\|\-\s]|\bNL\b|\(NL\)/i,t:"Dutch"},
+  {r:/\b(?:arabic|عربي)\b|[\|\-\s]AR[\|\-\s]|\bAR\b|\(AR\)/i,t:"Arabic"},
+  {r:/\b(?:turkish|t[uü]rk[cç]e)\b|[\|\-\s]TR[\|\-\s]|\bTR\b|\(TR\)/i,t:"Turkish"},
+  {r:/\b(?:russian|русский)\b|[\|\-\s]RU[\|\-\s]|\bRU\b|\(RU\)/i,t:"Russian"},
+  {r:/\b(?:hindi|हिन्दी)\b|[\|\-\s]HI[\|\-\s]|\bHI\b|\(HI\)/i,t:"Hindi"},
+  {r:/\b(?:korean|한국어)\b|[\|\-\s]KR[\|\-\s]|\bKR\b|\(KR\)/i,t:"Korean"},
+  {r:/\b(?:japanese|日本語)\b|[\|\-\s]JP[\|\-\s]|\bJP\b|\(JP\)|\bJA\b/i,t:"Japanese"},
+  {r:/\b(?:chinese|中文|mandarin|cantonese)\b|[\|\-\s]CN[\|\-\s]|\bCN\b|\(CN\)|\bZH\b/i,t:"Chinese"},
+  {r:/\b(?:polish|polski)\b|[\|\-\s]PL[\|\-\s]|\bPL\b|\(PL\)/i,t:"Polish"},
+  {r:/\b(?:swedish|svenska)\b|[\|\-\s]SE[\|\-\s]|\bSE\b|\(SE\)|\bSV\b/i,t:"Swedish"},
+  {r:/\b(?:danish|dansk)\b|[\|\-\s]DK[\|\-\s]|\bDK\b|\(DK\)|\bDA\b/i,t:"Danish"},
+  {r:/\b(?:norwegian|norsk)\b|[\|\-\s]NO[\|\-\s]|\bNO\b|\(NO\)/i,t:"Norwegian"},
+  {r:/\b(?:finnish|suomi)\b|[\|\-\s]FI[\|\-\s]|\bFI\b|\(FI\)/i,t:"Finnish"},
+  {r:/\b(?:greek|ελληνικ[αά])\b|[\|\-\s]GR[\|\-\s]|\bGR\b|\(GR\)|\bEL\b/i,t:"Greek"},
+  {r:/\b(?:romanian|rom[aâ]n[aă])\b|[\|\-\s]RO[\|\-\s]|\bRO\b|\(RO\)/i,t:"Romanian"},
+  {r:/\b(?:czech|[čc]e[šs]tina)\b|[\|\-\s]CZ[\|\-\s]|\bCZ\b|\(CZ\)|\bCS\b/i,t:"Czech"},
+  {r:/\b(?:hungarian|magyar)\b|[\|\-\s]HU[\|\-\s]|\bHU\b|\(HU\)/i,t:"Hungarian"},
+  {r:/\b(?:filipino|tagalog|pinoy)\b|[\|\-\s]PH[\|\-\s]|\bPH\b|\(PH\)/i,t:"Filipino"},
+  {r:/\b(?:thai|ไทย)\b|[\|\-\s]TH[\|\-\s]|\bTH\b|\(TH\)/i,t:"Thai"},
+  {r:/\b(?:vietnamese|vi[eệ]t)\b|[\|\-\s]VN[\|\-\s]|\bVN\b|\(VN\)|\bVI\b/i,t:"Vietnamese"},
+  {r:/\bUSA?\b|\bUS[\|\-\s]|America/i,t:"English"},
+  {r:/\bUK\b|\bGB\b|Britain/i,t:"English"},
+  {r:/\bCanada\b|\bCA[\|\-\s]/i,t:"English"},
+  {r:/\bAustralia\b|\bAU[\|\-\s]/i,t:"English"},
+  {r:/\bIndia\b|\bIN[\|\-\s]/i,t:"Hindi"},
+  {r:/\bMexico\b|\bMX[\|\-\s]/i,t:"Spanish"},
+  {r:/\bBrazil\b|\bBR[\|\-\s]/i,t:"Portuguese"}
 ];
 // Track which tags were auto-detected so we can style them differently
-var catAutoTags={};
+var catAutoTags={},catAutoLangs={};
 function autoTag(c){
+  c.tags=c.tags||[];
+  c._detectedPlatforms=[];
+  c._detectedLangs=[];
+  if(!catAutoTags[c.id])catAutoTags[c.id]={};
+  if(!catAutoLangs[c.id])catAutoLangs[c.id]={};
+  // Detect ALL matching platforms (not just first)
   for(var i=0;i<PLATFORMS.length;i++){
     if(PLATFORMS[i].r.test(c.name)){
-      c.tags=c.tags||[];
       var pt=PLATFORMS[i].t;
+      c._detectedPlatforms.push(pt);
       if(c.tags.indexOf(pt)<0){
-        c.tags.unshift(pt); // add at front so it's visible first
-        if(!catAutoTags[c.id])catAutoTags[c.id]={};
-        catAutoTags[c.id][pt]=true; // mark as auto-detected
+        c.tags.unshift(pt);
+        catAutoTags[c.id][pt]=true;
       }
-      break;
+    }
+  }
+  // Detect languages
+  var seenLang={};
+  for(var i=0;i<LANGUAGES.length;i++){
+    if(LANGUAGES[i].r.test(c.name)){
+      var lt=LANGUAGES[i].t;
+      if(!seenLang[lt]){
+        seenLang[lt]=true;
+        c._detectedLangs.push(lt);
+        if(c.tags.indexOf(lt)<0){
+          c.tags.push(lt);
+          catAutoLangs[c.id][lt]=true;
+        }
+      }
     }
   }
 }
@@ -243,26 +322,90 @@ function doStop(){A("/api/scan/stop",{method:"POST"});T("Stop requested")}
 function doDedup(){A("/api/scan/dedup",{method:"POST"}).then(function(d){T(d.error||"Dedup running — check Dupes Removed card",!d.error)})}
 function doJF(){A("/api/jellyfin/scan",{method:"POST"}).then(function(d){T(d.success?"Jellyfin rescan triggered":(d.error||"Failed"),d.success)})}
 
-function ldC(t,el){catT=t;catAutoTags={};document.querySelectorAll(".ctb div").forEach(function(x){x.classList.remove("a")});if(el)el.classList.add("a");
+function ldC(t,el){catT=t;catAutoTags={};catAutoLangs={};catLangFilters=[];catPlatFilters=[];
+  document.querySelectorAll(".ctb div").forEach(function(x){x.classList.remove("a")});if(el)el.classList.add("a");
   G("clist").innerHTML='<p style="color:var(--muted)">Loading...</p>';
   A("/api/categories/"+t).then(function(d){
     catD=d;catD.forEach(autoTag);
     var sel=catD.filter(function(c){return c.selected}).length;
     var cnt=G("cnt-"+t);if(cnt)cnt.textContent=sel+"/"+d.length;
+    buildFilterBars();
     cR()
   }).catch(function(){G("clist").innerHTML='<p class="rd">Failed to load</p>'})}
+function buildFilterBars(){
+  // Count languages found across all categories
+  var langCounts={},platCounts={};
+  catD.forEach(function(c){
+    (c._detectedLangs||[]).forEach(function(l){langCounts[l]=(langCounts[l]||0)+1});
+    (c._detectedPlatforms||[]).forEach(function(p){platCounts[p]=(platCounts[p]||0)+1});
+  });
+  var langRow=G("cfLangRow"),platRow=G("cfPlatRow"),langEl=G("cfLangs"),platEl=G("cfPlats");
+  // Build language buttons
+  var langs=Object.entries(langCounts).sort(function(a,b){return b[1]-a[1]});
+  if(langs.length>0){
+    langRow.style.display="flex";
+    langEl.innerHTML=langs.map(function(e){
+      return '<div class="cfb-btn" onclick="toggleLangFilter(\''+e[0]+'\',this)">'+e[0]+'<span class="cfb-cnt">('+e[1]+')</span></div>';
+    }).join("");
+  }else{langRow.style.display="none";langEl.innerHTML="";}
+  // Build platform buttons
+  var plats=Object.entries(platCounts).sort(function(a,b){return b[1]-a[1]});
+  if(plats.length>0){
+    platRow.style.display="flex";
+    platEl.innerHTML=plats.map(function(e){
+      return '<div class="cfb-btn" onclick="togglePlatFilter(\''+e[0].replace(/'/g,"\\'")+'\',this)">'+e[0]+'<span class="cfb-cnt">('+e[1]+')</span></div>';
+    }).join("");
+  }else{platRow.style.display="none";platEl.innerHTML="";}
+}
+function toggleLangFilter(lang,el){
+  var idx=catLangFilters.indexOf(lang);
+  if(idx>=0){catLangFilters.splice(idx,1);el.classList.remove("on-lang")}
+  else{catLangFilters.push(lang);el.classList.add("on-lang")}
+  cR();
+}
+function togglePlatFilter(plat,el){
+  var idx=catPlatFilters.indexOf(plat);
+  if(idx>=0){catPlatFilters.splice(idx,1);el.classList.remove("on-plat")}
+  else{catPlatFilters.push(plat);el.classList.add("on-plat")}
+  cR();
+}
 function cSelOnly(){catSelOnly=!catSelOnly;G("cso").className="btn bsm "+(catSelOnly?"bp":"bs");cR()}
-function cR(){
+function _catPassesFilters(c){
+  if(catSelOnly&&!c.selected)return false;
   var q=G("cq").value.toLowerCase();
-  var f=catD.filter(function(c){return(!catSelOnly||c.selected)&&(!q||c.name.toLowerCase().indexOf(q)>=0)});
+  if(q&&c.name.toLowerCase().indexOf(q)<0)return false;
+  // Language filter: category must match ALL selected languages
+  if(catLangFilters.length>0){
+    var cl=c._detectedLangs||[];
+    for(var i=0;i<catLangFilters.length;i++){
+      if(cl.indexOf(catLangFilters[i])<0)return false;
+    }
+  }
+  // Platform filter: category must match ANY selected platform
+  if(catPlatFilters.length>0){
+    var cp=c._detectedPlatforms||[];
+    var found=false;
+    for(var i=0;i<catPlatFilters.length;i++){
+      if(cp.indexOf(catPlatFilters[i])>=0){found=true;break}
+    }
+    if(!found)return false;
+  }
+  return true;
+}
+function cR(){
+  var f=catD.filter(_catPassesFilters);
   var selCount=catD.filter(function(c){return c.selected}).length;
-  G("cn").textContent=selCount+" selected / "+catD.length+" total"+(catSelOnly?" \u2014 filtered":"");
-  if(!f.length){G("clist").innerHTML='<p style="color:var(--muted)">'+(catSelOnly?"No selected categories.":"No results.")+'</p>';return}
+  var filtering=catSelOnly||catLangFilters.length>0||catPlatFilters.length>0||G("cq").value;
+  G("cn").textContent=selCount+" selected / "+catD.length+" total"+(filtering?" \u2014 showing "+f.length:"");
+  if(!f.length){G("clist").innerHTML='<p style="color:var(--muted)">'+(filtering?"No categories match filters.":"No results.")+'</p>';return}
   G("clist").innerHTML=f.map(function(c){
     var autoMap=catAutoTags[c.id]||{};
+    var langMap=catAutoLangs[c.id]||{};
     var tgs=(c.tags||[]).map(function(t,i){
       var isAuto=autoMap[t];
-      return '<span class="ci-tag'+(isAuto?" cat-at":"")+'">'
+      var isLang=langMap[t];
+      var cls="ci-tag"+(isAuto?" cat-at":"")+(isLang?" cat-lang":"");
+      return '<span class="'+cls+'">'
         +'<span class="ci-tn" onclick="editTag(\''+c.id+'\','+i+',this)" title="Click to edit">'+t+'</span>'
         +'<span class="ci-tx" onclick="rmTag(\''+c.id+'\','+i+')" title="Remove">&#215;</span>'
         +'</span>';
@@ -282,6 +425,8 @@ function editTag(id,idx,el){var c=catD.find(function(x){return x.id===id});if(!c
 function rmTag(id,idx){var c=catD.find(function(x){return x.id===id});if(c){c.tags=(c.tags||[]).filter(function(_,i){return i!==idx});cR()}}
 function cAll(){catD.forEach(function(c){c.selected=true});cR();_updTabCnt()}
 function cNone(){catD.forEach(function(c){c.selected=false});catSelOnly=false;G("cso").className="btn bsm bs";cR();_updTabCnt()}
+function cSelFiltered(){catD.forEach(function(c){if(_catPassesFilters(c))c.selected=true});cR();_updTabCnt()}
+function cInvert(){catD.forEach(function(c){c.selected=!c.selected});cR();_updTabCnt()}
 function _updTabCnt(){var sel=catD.filter(function(c){return c.selected}).length;var cnt=G("cnt-"+catT);if(cnt)cnt.textContent=sel+"/"+catD.length}
 function cSave(){var ids=catD.filter(function(c){return c.selected}).map(function(c){return c.id});
   var k=catT==="vod"?"vod_category_ids":catT==="series"?"series_category_ids":"live_category_ids";
@@ -335,8 +480,24 @@ var PLAT_COLORS={
   "Tubi":         {bg:"rgba(255,85,0,.15)",   bd:"rgba(255,85,0,.4)",    tx:"#fb923c"},
   "Viaplay":      {bg:"rgba(160,40,220,.18)", bd:"rgba(160,40,220,.5)",  tx:"#c084fc"},
   "Marvel":       {bg:"rgba(200,0,0,.15)",    bd:"rgba(200,0,0,.4)",     tx:"#f87171"},
+  "Channel 4":    {bg:"rgba(80,80,80,.18)",   bd:"rgba(80,80,80,.5)",    tx:"#aaa"},
+  "Crackle":      {bg:"rgba(255,200,0,.15)",  bd:"rgba(255,200,0,.4)",   tx:"#fcd34d"},
+  "Bravo":        {bg:"rgba(200,0,50,.15)",   bd:"rgba(200,0,50,.4)",    tx:"#f87171"},
+  "FX":           {bg:"rgba(200,200,200,.12)",bd:"rgba(200,200,200,.3)", tx:"#ccc"},
+  "CBS":          {bg:"rgba(0,100,200,.15)",  bd:"rgba(0,100,200,.4)",   tx:"#60a5fa"},
+  "NBC":          {bg:"rgba(0,150,255,.15)",  bd:"rgba(0,150,255,.4)",   tx:"#38bdf8"},
+  "ABC":          {bg:"rgba(255,180,0,.15)",  bd:"rgba(255,180,0,.4)",   tx:"#fbbf24"},
+  "Crave":        {bg:"rgba(0,70,200,.15)",   bd:"rgba(0,70,200,.4)",    tx:"#60a5fa"},
+  "Stan":         {bg:"rgba(0,120,200,.15)",  bd:"rgba(0,120,200,.4)",   tx:"#38bdf8"},
+  "Hayu":         {bg:"rgba(255,80,120,.15)", bd:"rgba(255,80,120,.4)",  tx:"#ff6688"},
+  "MUBI":         {bg:"rgba(0,0,0,.2)",       bd:"rgba(200,200,200,.3)", tx:"#e2e8f0"},
+  "Crunchyroll":  {bg:"rgba(255,120,0,.15)",  bd:"rgba(255,120,0,.4)",   tx:"#fb923c"},
+  "Funimation":   {bg:"rgba(100,0,200,.15)",  bd:"rgba(100,0,200,.4)",   tx:"#a78bfa"},
+  "Shudder":      {bg:"rgba(0,0,0,.2)",       bd:"rgba(100,100,100,.4)", tx:"#94a3b8"},
+  "BritBox":      {bg:"rgba(200,0,0,.15)",    bd:"rgba(200,0,0,.4)",     tx:"#f87171"},
+  "Curiosity Stream":{bg:"rgba(0,150,200,.15)",bd:"rgba(0,150,200,.4)",  tx:"#22d3ee"},
 };
-var ALL_PLATFORMS=["Netflix","Amazon Prime","Disney+","HBO Max","Hulu","Apple TV+","Paramount+","Peacock","Showtime","Starz","Discovery+","ESPN+","AMC+","BBC","ITV","Sky","Now TV","Tubi","Viaplay","Marvel"];
+var ALL_PLATFORMS=["Netflix","Amazon Prime","Disney+","HBO Max","Hulu","Apple TV+","Paramount+","Peacock","Showtime","Starz","Discovery+","ESPN+","AMC+","BBC","ITV","Channel 4","Sky","Now TV","Tubi","Crackle","Bravo","FX","CBS","NBC","ABC","Crave","Stan","Hayu","MUBI","Crunchyroll","Funimation","Shudder","BritBox","Curiosity Stream","Viaplay","Marvel"];
 function platStyle(p){var c=PLAT_COLORS[p];if(!c)return"background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.3);color:var(--accent)";return"background:"+c.bg+";border:1px solid "+c.bd+";color:"+c.tx}
 function platBadge(p){if(!p)return'';return'<span class="lc-plat" style="'+platStyle(p)+'">'+p+'</span>'}
 
