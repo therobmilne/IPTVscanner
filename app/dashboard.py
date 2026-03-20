@@ -7,9 +7,14 @@ import hashlib, json, logging, os, threading, time, uuid
 from datetime import datetime, timezone
 from pathlib import Path
 import yaml
-from flask import Flask, render_template, jsonify, request, Response, send_file, redirect
+from flask import Flask, render_template, jsonify, request, Response, send_file
 
 logger = logging.getLogger(__name__)
+
+
+def _base_url() -> str:
+    """Build the base URL from the current Flask request."""
+    return f"{request.scheme}://{request.host}"
 
 
 def _get_device_id(data_dir: Path) -> str:
@@ -42,6 +47,9 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
     app.last_dedup = {"movies": 0, "series": 0}
     app.last_enrich = {"enriched": 0, "failed": 0, "skipped": 0}
     app.scheduler = None
+
+    # Caches to avoid re-reading files / making network calls on every poll
+    _status_cache = {"history": None, "history_mtime": 0, "jf_status": None, "jf_ts": 0}
 
     # Proxy — always initialize if possible, always auto-start by default
     app.proxy = None
@@ -133,21 +141,31 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
     @app.route("/api/status")
     def api_status():
         lib = scanner.get_library_stats() if scanner else {}
-        history = []
+        # Cache scan_history.json — only re-read when file changes
         hf = data_dir / "scan_history.json"
-        if hf.exists():
-            try:
+        history = _status_cache["history"] or []
+        try:
+            mt = hf.stat().st_mtime if hf.exists() else 0
+            if mt != _status_cache["history_mtime"]:
                 with open(hf) as f: history = json.load(f)
-            except: pass
+                _status_cache["history"] = history
+                _status_cache["history_mtime"] = mt
+        except Exception:
+            pass
+        # Cache Jellyfin status — refresh at most every 60s
         jf_status = None
         if jellyfin and jellyfin.enabled:
             auth = getattr(jellyfin, 'auth_enabled', False)
-            try:
-                info = jellyfin.get_system_info()
-                jf_status = {"name": info.get("ServerName",""), "version": info.get("Version",""),
-                    "online": True, "auth": auth} if info else {"online": False, "auth": auth}
-            except:
-                jf_status = {"online": False, "auth": auth}
+            now = time.time()
+            if now - _status_cache["jf_ts"] > 60:
+                try:
+                    info = jellyfin.get_system_info()
+                    _status_cache["jf_status"] = {"name": info.get("ServerName",""), "version": info.get("Version",""),
+                        "online": True, "auth": auth} if info else {"online": False, "auth": auth}
+                except Exception:
+                    _status_cache["jf_status"] = {"online": False, "auth": auth}
+                _status_cache["jf_ts"] = now
+            jf_status = _status_cache["jf_status"]
         px = None
         if app.proxy:
             px = app.proxy.get_stats()
@@ -348,9 +366,7 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
     @app.route("/api/proxy/info")
     def api_px_info():
         """Return Threadfin setup URLs for this server."""
-        host = request.host
-        scheme = request.scheme
-        base = f"{scheme}://{host}"
+        base = _base_url()
         epg_ready = _epg_path.exists()
         return jsonify({
             "m3u_url": f"{base}/proxy/playlist.m3u",
@@ -365,12 +381,11 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
     @app.route("/proxy/playlist.m3u")
     @app.route("/proxy/playlist")
     def px_m3u():
-        # If proxy is running, generate fresh proxy M3U (also writes to disk)
+        # If proxy is running, generate fresh proxy M3U and write to disk
         if app.proxy and app.proxy_running:
-            base = f"{request.scheme}://{request.host}/proxy"
+            base = f"{_base_url()}/proxy"
             content = app.proxy.generate_proxy_m3u(base)
-            # Update the static file on disk with the correct base URL
-            app.proxy.write_proxy_m3u(base)
+            app.proxy.write_proxy_m3u(base, content=content)
             return Response(content, mimetype="audio/x-mpegurl",
                             headers={"Content-Disposition": "inline; filename=playlist.m3u"})
         # Proxy stopped or not initialized — serve static proxy M3U from disk if it exists
@@ -429,7 +444,7 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
 
     @app.route("/discover.json")
     def hdhr_discover():
-        base_url = f"{request.scheme}://{request.host}"
+        base_url = _base_url()
         return jsonify({
             "BaseURL": base_url,
             "DeviceAuth": "IPTV-Scanner",
@@ -445,7 +460,7 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
 
     @app.route("/device.xml")
     def hdhr_device_xml():
-        base_url = f"{request.scheme}://{request.host}"
+        base_url = _base_url()
         name = tuner_cfg.get("device_name", "IPTV Scanner")
         xml = f'''<?xml version="1.0" encoding="UTF-8"?>
 <root xmlns="urn:schemas-upnp-org:device-1-0">
@@ -469,7 +484,7 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
 
     @app.route("/lineup.json")
     def hdhr_lineup():
-        base_url = f"{request.scheme}://{request.host}"
+        base_url = _base_url()
         lineup = []
         if app.proxy and app.proxy.channel_map:
             for stream_key, ch_info in sorted(app.proxy.channel_map.items(), key=lambda x: x[1].get("name", "")):
@@ -494,7 +509,7 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
 
     @app.route("/api/tuner/info")
     def api_tuner_info():
-        base_url = f"{request.scheme}://{request.host}"
+        base_url = _base_url()
         return jsonify({
             "enabled": tuner_cfg.get("enabled", True),
             "device_id": device_id,
@@ -651,6 +666,9 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
                 scheduler.add_job(scheduled_scan, 'cron', day_of_week='mon', hour=hour, minute=minute, id='iptv_scan', replace_existing=True)
             elif freq == "monthly":
                 scheduler.add_job(scheduled_scan, 'cron', day=1, hour=hour, minute=minute, id='iptv_scan', replace_existing=True)
+            elif freq == "interval":
+                interval_hours = sched_config.get("interval_hours", 6)
+                scheduler.add_job(scheduled_scan, 'interval', hours=interval_hours, id='iptv_scan', replace_existing=True)
             else:
                 scheduler.add_job(scheduled_scan, 'cron', hour=hour, minute=minute, id='iptv_scan', replace_existing=True)
 

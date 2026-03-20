@@ -161,7 +161,8 @@ def main():
         return
 
     if args.command == "enrich":
-        IPTVScanner(config); TMDBEnricher(config).enrich_library(IPTVScanner(config).state)
+        sc = IPTVScanner(config)
+        TMDBEnricher(config).enrich_library(sc.state)
         return
 
     if args.command == "collections":

@@ -15,6 +15,8 @@ from pathlib import Path
 
 import requests
 
+from .scanner import sanitize_filename
+
 logger = logging.getLogger(__name__)
 
 # TMDB API base
@@ -369,7 +371,7 @@ class TMDBEnricher:
         for coll_name, paths in collection_map.items():
             if not paths:
                 continue
-            coll_dir = collections_dir / sanitize_name(coll_name)
+            coll_dir = collections_dir / sanitize_filename(coll_name)
             coll_dir.mkdir(parents=True, exist_ok=True)
 
             # Write a manifest of the collection
@@ -585,9 +587,3 @@ class TMDBEnricher:
         self._save_cache()
         logger.info(f"Enrichment done: {enriched} items enriched, {failed} failed/not found")
         return {"enriched": enriched, "failed": failed}
-
-
-def sanitize_name(name: str) -> str:
-    """Clean a name for use as a directory."""
-    name = re.sub(r'[<>:"/\\|?*]', '', name)
-    return name.strip()

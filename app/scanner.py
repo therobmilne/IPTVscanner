@@ -359,6 +359,12 @@ class IPTVScanner:
 
         return True
 
+    def _should_include(self, cat_id: str, cat_id_whitelist: set, name: str, cat_name: str) -> bool:
+        """Check if an item passes category/language filters."""
+        if cat_id_whitelist:
+            return self._cat_id_allowed(cat_id, cat_id_whitelist)
+        return self._passes_language_filter(name, cat_name)
+
     def _is_anime(self, name: str, category_name: str = "") -> bool:
         """Check if content is anime based on category name or title patterns."""
         combined = (category_name + " " + name).upper()
@@ -456,15 +462,9 @@ class IPTVScanner:
             cat_name = cat_map.get(cat_id, "")
             extension = vod.get("container_extension", "ts")
 
-            # Category ID whitelist filtering (primary)
-            if self.vod_cat_ids:
-                if not self._cat_id_allowed(cat_id, self.vod_cat_ids):
-                    stats.skipped_filtered += 1
-                    continue
-            else:
-                if not self._passes_language_filter(name, cat_name):
-                    stats.skipped_filtered += 1
-                    continue
+            if not self._should_include(cat_id, self.vod_cat_ids, name, cat_name):
+                stats.skipped_filtered += 1
+                continue
 
             # Anime filter
             if self.exclude_anime and self._is_anime(name, cat_name):
@@ -626,15 +626,9 @@ class IPTVScanner:
             cat_id = str(series.get("category_id", "") or "")
             cat_name = cat_map.get(cat_id, "")
 
-            # Category ID whitelist filtering
-            if self.series_cat_ids:
-                if not self._cat_id_allowed(cat_id, self.series_cat_ids):
-                    stats.skipped_filtered += 1
-                    continue
-            else:
-                if not self._passes_language_filter(name, cat_name):
-                    stats.skipped_filtered += 1
-                    continue
+            if not self._should_include(cat_id, self.series_cat_ids, name, cat_name):
+                stats.skipped_filtered += 1
+                continue
 
             # Anime filter
             if self.exclude_anime and self._is_anime(name, cat_name):
@@ -854,20 +848,11 @@ class IPTVScanner:
             cat_id = str(ch.get("category_id", "") or "")
             cat_name = cat_map.get(cat_id, "")
 
-            # Category ID whitelist filtering (primary)
-            if self.live_cat_ids:
-                if self._cat_id_allowed(cat_id, self.live_cat_ids):
-                    ch["_category_name"] = cat_name
-                    filtered_channels.append(ch)
-                else:
-                    stats.skipped_filtered += 1
+            if self._should_include(cat_id, self.live_cat_ids, name, cat_name):
+                ch["_category_name"] = cat_name
+                filtered_channels.append(ch)
             else:
-                # Fallback to legacy name-based filter
-                if self._passes_language_filter(name, cat_name):
-                    ch["_category_name"] = cat_name
-                    filtered_channels.append(ch)
-                else:
-                    stats.skipped_filtered += 1
+                stats.skipped_filtered += 1
 
         logger.info(f"After filtering: {len(filtered_channels)} channels kept")
 
@@ -936,8 +921,7 @@ class IPTVScanner:
                 logger.info(f"EPG filtered: {filtered_size:.1f} MB -> {epg_path}")
             else:
                 # No IDs to filter on — just use raw
-                import shutil as _shutil
-                _shutil.copy2(raw_path, epg_path)
+                shutil.copy2(raw_path, epg_path)
                 logger.info("EPG: no channel IDs to filter on, using raw")
 
             # Remove temp raw file
@@ -1398,12 +1382,10 @@ class IPTVScanner:
                             new_server: str, new_user: str, new_pass: str) -> dict:
         """Rewrite all .strm file URLs with new provider credentials without rescanning.
         Also updates the M3U file for live TV."""
-        import re as _re
-
         results = {"movies_updated": 0, "episodes_updated": 0, "live_updated": False, "errors": []}
 
         # Pattern: {server}/{type}/{user}/{pass}/{id}.{ext}
-        old_pattern = _re.escape(old_server) + r'/(movie|series|live)/' + _re.escape(old_user) + '/' + _re.escape(old_pass) + '/'
+        old_pattern = re.escape(old_server) + r'/(movie|series|live)/' + re.escape(old_user) + '/' + re.escape(old_pass) + '/'
         new_repl_fn = lambda m: f"{new_server}/{m.group(1)}/{new_user}/{new_pass}/"
 
         # Rewrite movie .strm files
@@ -1412,7 +1394,7 @@ class IPTVScanner:
             if strm_path.exists():
                 try:
                     content = strm_path.read_text()
-                    new_content = _re.sub(old_pattern, new_repl_fn, content)
+                    new_content = re.sub(old_pattern, new_repl_fn, content)
                     if new_content != content:
                         strm_path.write_text(new_content)
                         info["stream_url"] = new_content.strip()
@@ -1431,7 +1413,7 @@ class IPTVScanner:
                 for strm_file in series_dir.rglob("*.strm"):
                     try:
                         content = strm_file.read_text()
-                        new_content = _re.sub(old_pattern, new_repl_fn, content)
+                        new_content = re.sub(old_pattern, new_repl_fn, content)
                         if new_content != content:
                             strm_file.write_text(new_content)
                             results["episodes_updated"] += 1

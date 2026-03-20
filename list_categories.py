@@ -11,6 +11,16 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from app.xtream_client import XtreamClient
 
+def _format_section(title, categories):
+    """Format a category section as a list of lines."""
+    lines = [f"\n{'=' * 80}", title, "=" * 80]
+    for i, c in enumerate(categories, 1):
+        cat_id = c.get("category_id", "?")
+        name = c.get("category_name", "Unknown")
+        lines.append(f"  {i:4d}. [{cat_id:>6s}]  {name}")
+    lines.append(f"\n  Total: {len(categories)} categories")
+    return lines
+
 def main():
     with open("config.yaml") as f:
         config = yaml.safe_load(f)
@@ -26,63 +36,25 @@ def main():
         print("Authentication failed!")
         return
 
-    # ---- VOD Categories ----
-    print("\n" + "=" * 80)
-    print("VOD (MOVIE) CATEGORIES")
-    print("=" * 80)
-    vod_cats = client.get_vod_categories()
-    for i, c in enumerate(vod_cats, 1):
-        cat_id = c.get("category_id", "?")
-        name = c.get("category_name", "Unknown")
-        print(f"  {i:4d}. [{cat_id:>6s}]  {name}")
-    print(f"\n  Total: {len(vod_cats)} VOD categories")
+    sections = [
+        ("VOD (MOVIE) CATEGORIES", client.get_vod_categories()),
+        ("SERIES (TV SHOW) CATEGORIES", client.get_series_categories()),
+        ("LIVE TV CATEGORIES", client.get_live_categories()),
+    ]
 
-    # ---- Series Categories ----
-    print("\n" + "=" * 80)
-    print("SERIES (TV SHOW) CATEGORIES")
-    print("=" * 80)
-    series_cats = client.get_series_categories()
-    for i, c in enumerate(series_cats, 1):
-        cat_id = c.get("category_id", "?")
-        name = c.get("category_name", "Unknown")
-        print(f"  {i:4d}. [{cat_id:>6s}]  {name}")
-    print(f"\n  Total: {len(series_cats)} series categories")
+    all_lines = []
+    for title, cats in sections:
+        lines = _format_section(title, cats)
+        all_lines.extend(lines)
+        for line in lines:
+            print(line)
 
-    # ---- Live TV Categories ----
-    print("\n" + "=" * 80)
-    print("LIVE TV CATEGORIES")
-    print("=" * 80)
-    live_cats = client.get_live_categories()
-    for i, c in enumerate(live_cats, 1):
-        cat_id = c.get("category_id", "?")
-        name = c.get("category_name", "Unknown")
-        print(f"  {i:4d}. [{cat_id:>6s}]  {name}")
-    print(f"\n  Total: {len(live_cats)} live TV categories")
-
-    # ---- Save to file for easy review ----
     outfile = "data/all_categories.txt"
     os.makedirs("data", exist_ok=True)
     with open(outfile, "w", encoding="utf-8") as f:
-        f.write("VOD (MOVIE) CATEGORIES\n")
-        f.write("=" * 80 + "\n")
-        for i, c in enumerate(vod_cats, 1):
-            f.write(f"{i:4d}. [{c.get('category_id', '?'):>6s}]  {c.get('category_name', 'Unknown')}\n")
-        f.write(f"\nTotal: {len(vod_cats)}\n\n")
-
-        f.write("SERIES (TV SHOW) CATEGORIES\n")
-        f.write("=" * 80 + "\n")
-        for i, c in enumerate(series_cats, 1):
-            f.write(f"{i:4d}. [{c.get('category_id', '?'):>6s}]  {c.get('category_name', 'Unknown')}\n")
-        f.write(f"\nTotal: {len(series_cats)}\n\n")
-
-        f.write("LIVE TV CATEGORIES\n")
-        f.write("=" * 80 + "\n")
-        for i, c in enumerate(live_cats, 1):
-            f.write(f"{i:4d}. [{c.get('category_id', '?'):>6s}]  {c.get('category_name', 'Unknown')}\n")
-        f.write(f"\nTotal: {len(live_cats)}\n")
+        f.write("\n".join(all_lines) + "\n")
 
     print(f"\n*** Full list also saved to: {outfile} ***")
-    print("*** Open it in a text editor to review at your own pace ***")
 
 if __name__ == "__main__":
     main()

@@ -202,7 +202,7 @@ class RestreamProxy:
         except Exception as e:
             logger.error(f"Failed to load M3U: {e}")
 
-    def write_proxy_m3u(self, base_url: str = None):
+    def write_proxy_m3u(self, base_url: str = None, content: str = None):
         """Write the proxy-rewritten M3U to disk as a static file.
         Threadfin can point to this file directly (via shared volume) or via HTTP.
         This file persists across app restarts."""
@@ -210,7 +210,8 @@ class RestreamProxy:
             return
         base = base_url or self.proxy_base_url
         try:
-            content = self.generate_proxy_m3u(base)
+            if content is None:
+                content = self.generate_proxy_m3u(base)
             with open(self.proxy_m3u_path, "w", encoding="utf-8") as f:
                 f.write(content)
             logger.info(f"Wrote proxy M3U to {self.proxy_m3u_path} ({len(self.channel_map)} channels)")

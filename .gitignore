@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+*.egg
+.venv/
+venv/
+env/
+
+# Data files (generated at runtime)
+data/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Third-party vendored projects (not part of this app)
+Threadfin-main/
+tvheadend-master/
+
+# Claude settings
+.claude/
