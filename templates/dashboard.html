@@ -50,7 +50,6 @@
 .ci-ti:focus{width:100px;color:var(--text);border-color:var(--accent);background:rgba(56,189,248,.04)}.ci-ti::placeholder{color:var(--border)}
 .ctb-cnt{font-size:9px;color:var(--muted);display:block;margin-top:1px;font-weight:400}
 .cat-at{background:rgba(251,146,60,.12);border-color:rgba(251,146,60,.35);color:var(--orange)}
-.cat-lang{background:rgba(52,211,153,.12);border-color:rgba(52,211,153,.35);color:var(--green)}
 .cfb{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:8px}
 .cfb-label{font-size:10px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-right:4px;display:flex;align-items:center;min-width:65px}
 .cfb-row{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin-bottom:6px}
@@ -147,8 +146,7 @@
     </div>
     <div style="font-size:10px;color:var(--muted);margin-bottom:8px">
       <span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(56,189,248,.12);border:1px solid rgba(56,189,248,.3);display:inline-block"></span>custom tag</span>
-      <span style="display:inline-flex;align-items:center;gap:4px;margin-right:12px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(251,146,60,.12);border:1px solid rgba(251,146,60,.35);display:inline-block"></span>auto-detected platform</span>
-      <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(52,211,153,.12);border:1px solid rgba(52,211,153,.35);display:inline-block"></span>auto-detected language</span>
+      <span style="display:inline-flex;align-items:center;gap:4px"><span style="width:10px;height:10px;border-radius:2px;background:rgba(251,146,60,.12);border:1px solid rgba(251,146,60,.35);display:inline-block"></span>auto-detected platform</span>
     </div>
     <div class="cl" id="clist"><p style="color:var(--muted)">Select a tab above.</p></div>
   </div>
@@ -250,13 +248,12 @@ var LANGUAGES=[
   {r:/\bBrazil\b|\bBR[\|\-\s]/i,t:"Portuguese"}
 ];
 // Track which tags were auto-detected so we can style them differently
-var catAutoTags={},catAutoLangs={};
+var catAutoTags={};
 function autoTag(c){
   c.tags=c.tags||[];
   c._detectedPlatforms=[];
   c._detectedLangs=[];
   if(!catAutoTags[c.id])catAutoTags[c.id]={};
-  if(!catAutoLangs[c.id])catAutoLangs[c.id]={};
   // Detect ALL matching platforms (not just first)
   for(var i=0;i<PLATFORMS.length;i++){
     if(PLATFORMS[i].r.test(c.name)){
@@ -268,7 +265,7 @@ function autoTag(c){
       }
     }
   }
-  // Detect languages
+  // Detect languages (for filtering only — NOT added as tags)
   var seenLang={};
   for(var i=0;i<LANGUAGES.length;i++){
     if(LANGUAGES[i].r.test(c.name)){
@@ -276,10 +273,6 @@ function autoTag(c){
       if(!seenLang[lt]){
         seenLang[lt]=true;
         c._detectedLangs.push(lt);
-        if(c.tags.indexOf(lt)<0){
-          c.tags.push(lt);
-          catAutoLangs[c.id][lt]=true;
-        }
       }
     }
   }
@@ -322,7 +315,7 @@ function doStop(){A("/api/scan/stop",{method:"POST"});T("Stop requested")}
 function doDedup(){A("/api/scan/dedup",{method:"POST"}).then(function(d){T(d.error||"Dedup running — check Dupes Removed card",!d.error)})}
 function doJF(){A("/api/jellyfin/scan",{method:"POST"}).then(function(d){T(d.success?"Jellyfin rescan triggered":(d.error||"Failed"),d.success)})}
 
-function ldC(t,el){catT=t;catAutoTags={};catAutoLangs={};catLangFilters=[];catPlatFilters=[];
+function ldC(t,el){catT=t;catAutoTags={};catLangFilters=[];catPlatFilters=[];
   document.querySelectorAll(".ctb div").forEach(function(x){x.classList.remove("a")});if(el)el.classList.add("a");
   G("clist").innerHTML='<p style="color:var(--muted)">Loading...</p>';
   A("/api/categories/"+t).then(function(d){
@@ -348,9 +341,9 @@ function buildFilterBars(){
       return '<div class="cfb-btn" onclick="toggleLangFilter(\''+e[0]+'\',this)">'+e[0]+'<span class="cfb-cnt">('+e[1]+')</span></div>';
     }).join("");
   }else{langRow.style.display="none";langEl.innerHTML="";}
-  // Build platform buttons
+  // Build platform buttons (hide for Live TV — not relevant)
   var plats=Object.entries(platCounts).sort(function(a,b){return b[1]-a[1]});
-  if(plats.length>0){
+  if(plats.length>0&&catT!=="live"){
     platRow.style.display="flex";
     platEl.innerHTML=plats.map(function(e){
       return '<div class="cfb-btn" onclick="togglePlatFilter(\''+e[0].replace(/'/g,"\\'")+'\',this)">'+e[0]+'<span class="cfb-cnt">('+e[1]+')</span></div>';
@@ -374,12 +367,17 @@ function _catPassesFilters(c){
   if(catSelOnly&&!c.selected)return false;
   var q=G("cq").value.toLowerCase();
   if(q&&c.name.toLowerCase().indexOf(q)<0)return false;
-  // Language filter: category must match ALL selected languages
+  // Language filter: category must match ANY selected language, OR have no detected language (unlabeled = passes)
   if(catLangFilters.length>0){
     var cl=c._detectedLangs||[];
-    for(var i=0;i<catLangFilters.length;i++){
-      if(cl.indexOf(catLangFilters[i])<0)return false;
+    if(cl.length>0){
+      var langMatch=false;
+      for(var i=0;i<catLangFilters.length;i++){
+        if(cl.indexOf(catLangFilters[i])>=0){langMatch=true;break}
+      }
+      if(!langMatch)return false;
     }
+    // Categories with no detected language pass through (unlabeled)
   }
   // Platform filter: category must match ANY selected platform
   if(catPlatFilters.length>0){
@@ -400,12 +398,9 @@ function cR(){
   if(!f.length){G("clist").innerHTML='<p style="color:var(--muted)">'+(filtering?"No categories match filters.":"No results.")+'</p>';return}
   G("clist").innerHTML=f.map(function(c){
     var autoMap=catAutoTags[c.id]||{};
-    var langMap=catAutoLangs[c.id]||{};
     var tgs=(c.tags||[]).map(function(t,i){
       var isAuto=autoMap[t];
-      var isLang=langMap[t];
-      var cls="ci-tag"+(isAuto?" cat-at":"")+(isLang?" cat-lang":"");
-      return '<span class="'+cls+'">'
+      return '<span class="ci-tag'+(isAuto?" cat-at":"")+'">'
         +'<span class="ci-tn" onclick="editTag(\''+c.id+'\','+i+',this)" title="Click to edit">'+t+'</span>'
         +'<span class="ci-tx" onclick="rmTag(\''+c.id+'\','+i+')" title="Remove">&#215;</span>'
         +'</span>';

@@ -27,7 +27,6 @@ import threading
 import time
 from pathlib import Path
 
-import requests
 from flask import Flask, Response, request, send_file
 
 logger = logging.getLogger(__name__)
@@ -267,6 +266,8 @@ class RestreamProxy:
     def _upstream_fetcher(self, stream: ActiveStream):
         """Background thread that reads from upstream and broadcasts to clients.
         Includes retry logic for dropped connections."""
+        import requests as req
+
         retries = 0
 
         while stream.running and retries <= MAX_UPSTREAM_RETRIES:
@@ -274,7 +275,6 @@ class RestreamProxy:
                 if retries > 0:
                     logger.info(f"Upstream retry {retries}/{MAX_UPSTREAM_RETRIES}: {stream.stream_id}")
                     time.sleep(RETRY_DELAY)
-                    # Check if all clients left during retry wait
                     if stream.client_count == 0:
                         elapsed = time.time() - stream.last_client_time
                         if elapsed > RETRY_DELAY:
@@ -283,38 +283,35 @@ class RestreamProxy:
 
                 logger.info(f"Upstream connecting: {stream.stream_id} (attempt {retries + 1})")
 
-                resp = requests.get(
+                with req.get(
                     stream.upstream_url,
                     stream=True,
                     timeout=(UPSTREAM_CONNECT_TIMEOUT, UPSTREAM_READ_TIMEOUT),
                     headers={"User-Agent": "IPTV-StreamManager/1.0"},
-                )
-                resp.raise_for_status()
+                ) as resp:
+                    resp.raise_for_status()
 
-                logger.info(f"Upstream connected: {stream.stream_id}")
-                retries = 0  # Reset retries on successful connection
-                stream.error = None
+                    logger.info(f"Upstream connected: {stream.stream_id}")
+                    retries = 0  # Reset retries on successful connection
+                    stream.error = None
 
-                for chunk in resp.iter_content(chunk_size=CHUNK_SIZE):
-                    if not stream.running:
-                        resp.close()
-                        break
-                    if not chunk:
-                        continue
-
-                    stream.broadcast(chunk)
-
-                    # Check if we should stop (no clients for IDLE_TIMEOUT)
-                    if stream.client_count == 0:
-                        elapsed = time.time() - stream.last_client_time
-                        if elapsed > IDLE_TIMEOUT:
-                            logger.info(f"Upstream idle timeout: {stream.stream_id}")
-                            resp.close()
-                            stream.running = False
+                    for chunk in resp.iter_content(chunk_size=CHUNK_SIZE):
+                        if not stream.running:
                             break
+                        if not chunk:
+                            continue
 
-                # If we got here without break, the stream ended naturally
-                # Try to reconnect if clients are still waiting
+                        stream.broadcast(chunk)
+
+                        # Check if we should stop (no clients for IDLE_TIMEOUT)
+                        if stream.client_count == 0:
+                            elapsed = time.time() - stream.last_client_time
+                            if elapsed > IDLE_TIMEOUT:
+                                logger.info(f"Upstream idle timeout: {stream.stream_id}")
+                                stream.running = False
+                                break
+
+                # If stream ended naturally but clients are waiting, retry
                 if stream.running and stream.client_count > 0:
                     retries += 1
                     logger.warning(f"Upstream ended unexpectedly, will retry: {stream.stream_id}")
@@ -322,25 +319,24 @@ class RestreamProxy:
                 else:
                     break
 
-            except requests.exceptions.ConnectionError as e:
+            except req.exceptions.ConnectionError as e:
                 retries += 1
                 stream.error = f"Connection error: {e}"
                 logger.error(f"Upstream connection error for {stream.stream_id}: {e}")
                 if stream.client_count == 0:
                     break
-            except requests.exceptions.Timeout as e:
+            except req.exceptions.Timeout as e:
                 retries += 1
                 stream.error = f"Timeout: {e}"
                 logger.error(f"Upstream timeout for {stream.stream_id}: {e}")
                 if stream.client_count == 0:
                     break
-            except requests.exceptions.HTTPError as e:
-                # Don't retry on 4xx errors (auth failures, not found, etc.)
+            except req.exceptions.HTTPError as e:
                 status = e.response.status_code if e.response is not None else 0
                 stream.error = f"HTTP {status}: {e}"
                 logger.error(f"Upstream HTTP error for {stream.stream_id}: {e}")
                 if 400 <= status < 500:
-                    break  # No point retrying client errors
+                    break  # Don't retry client errors (auth, not found)
                 retries += 1
                 if stream.client_count == 0:
                     break
