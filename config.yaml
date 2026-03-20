@@ -159,10 +159,14 @@ schedule:
   scan_time: "03:30"
 
 proxy:
-  # Proxy streams live TV through this app so Threadfin gets one connection per channel
-  # Point Threadfin at:  M3U → http://YOUR_IP:8888/proxy/playlist.m3u
-  #                      EPG → http://YOUR_IP:8888/proxy/epg.xml
   auto_start: true        # Start proxy streaming automatically with the dashboard
+
+tuner:
+  # Built-in HDHomeRun emulator — Jellyfin connects directly, no Threadfin needed
+  # Setup: Jellyfin → Dashboard → Live TV → Add Tuner → HD Homerun → http://YOUR_IP:8888
+  enabled: true
+  device_name: "IPTV Scanner"
+  tuner_count: 2           # Max simultaneous live TV streams (Jellyfin respects this)
 
 dashboard:
   host: "0.0.0.0"

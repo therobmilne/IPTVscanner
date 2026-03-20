@@ -1,9 +1,0 @@
-{
-  "permissions": {
-    "allow": [
-      "Bash(ls -la /Users/robmilne/IPTVscanner\\\\\\(Git\\\\\\)/IPTVscanner/app)",
-      "Bash(ls -la /Users/robmilne/IPTVscanner\\\\\\(Git\\\\\\)/IPTVscanner/templates)",
-      "Bash(python3 -c \"import py_compile; py_compile.compile\\(''app/restream_proxy.py'', doraise=True\\); print\\(''restream_proxy.py OK''\\)\")"
-    ]
-  }
-}

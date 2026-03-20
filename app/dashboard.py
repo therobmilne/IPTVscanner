@@ -1,14 +1,26 @@
 """
 IPTV Stream Manager - Web Dashboard
 Simplified: one scan button, scans everything, always works.
+Built-in HDHomeRun tuner emulator — Jellyfin connects directly, no Threadfin needed.
 """
-import json, logging, os, threading, time
+import hashlib, json, logging, os, threading, time, uuid
 from datetime import datetime, timezone
 from pathlib import Path
 import yaml
-from flask import Flask, render_template, jsonify, request, Response, send_file
+from flask import Flask, render_template, jsonify, request, Response, send_file, redirect
 
 logger = logging.getLogger(__name__)
+
+
+def _get_device_id(data_dir: Path) -> str:
+    """Return a stable hex device ID for HDHomeRun emulation, persisted to disk."""
+    id_file = data_dir / "tuner_device_id"
+    if id_file.exists():
+        return id_file.read_text().strip()
+    did = hashlib.md5(uuid.uuid4().bytes).hexdigest()[:8].upper()
+    data_dir.mkdir(parents=True, exist_ok=True)
+    id_file.write_text(did)
+    return did
 
 def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
     app = Flask(__name__,
@@ -16,8 +28,15 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
         static_folder=os.path.join(os.path.dirname(os.path.dirname(__file__)), "static"))
     app.config["SECRET_KEY"] = "iptv-stream-manager"
     data_dir = Path(config["paths"].get("data_dir", "./data"))
+    data_dir.mkdir(parents=True, exist_ok=True)
     config_path = Path(config.get("_config_path", "config.yaml"))
     log_file = data_dir / "app.log"
+
+    # HDHomeRun tuner emulation
+    device_id = _get_device_id(data_dir)
+    tuner_cfg = config.get("tuner", {})
+    logger.info(f"Tuner Device ID: {device_id}")
+
     app.scan_running = False
     app.last_scan_result = None
     app.last_dedup = {"movies": 0, "series": 0}
@@ -40,6 +59,11 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
         logger.warning("Proxy: 'requests' package required — pip install requests")
     except Exception as e:
         logger.warning(f"Proxy init: {e}")
+
+    # Tuner requires proxy to always be running for stream delivery
+    if tuner_cfg.get("enabled", True) and app.proxy and not app.proxy_running:
+        app.proxy_running = True
+        logger.info("Tuner enabled: proxy force-started for stream delivery")
 
     # === SCAN RUNNER (used by API + scheduler) ===
     def _do_scan():
@@ -128,10 +152,15 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
         if app.proxy:
             px = app.proxy.get_stats()
             px["running"] = app.proxy_running
+        tuner = None
+        if tuner_cfg.get("enabled", True):
+            tuner = {"device_id": device_id, "channels": len(app.proxy.channel_map) if app.proxy else 0,
+                "active_streams": len(app.proxy.streams) if app.proxy else 0,
+                "tuner_count": tuner_cfg.get("tuner_count", 2)}
         return jsonify({"library": lib, "last_scan": history[-1] if history else None,
             "scan_running": app.scan_running, "scan_progress": scanner.progress if scanner else {},
             "jellyfin": jf_status, "tmdb_enabled": enricher.enabled if enricher else False,
-            "proxy": px, "dedup_stats": app.last_dedup, "enrich_stats": app.last_enrich})
+            "proxy": px, "dedup_stats": app.last_dedup, "enrich_stats": app.last_enrich, "tuner": tuner})
 
     @app.route("/api/scan", methods=["POST"])
     def api_scan():
@@ -299,24 +328,35 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
     @app.route("/api/proxy/start", methods=["POST"])
     def api_px_start():
         if not app.proxy: return jsonify({"error":"N/A"}),400
-        app.proxy_running = True; app.proxy.load_channels()
+        app.proxy_running = True
+        app.proxy.load_channels()  # Also writes proxy M3U to disk
         return jsonify({"message":"Started","channels":len(app.proxy.channel_map)})
 
     @app.route("/api/proxy/stop", methods=["POST"])
     def api_px_stop():
+        if tuner_cfg.get("enabled", True):
+            return jsonify({"error": "Cannot stop proxy while tuner is active — Jellyfin needs it for live TV"}), 400
         app.proxy_running = False
         return jsonify({"message":"Stopped"})
+
+    # Resolve paths for static file fallback (works even if proxy object fails to init)
+    _live_tv_dir = Path(os.path.expanduser(config["paths"].get("live_tv", "~/iptv-scanner/LiveTV")))
+    _raw_m3u_path = _live_tv_dir / "iptv_channels.m3u"
+    _proxy_m3u_path = _live_tv_dir / "iptv_proxy.m3u"
+    _epg_path = _live_tv_dir / "epg.xml"
 
     @app.route("/api/proxy/info")
     def api_px_info():
         """Return Threadfin setup URLs for this server."""
-        host = request.host  # includes port if non-standard
+        host = request.host
         scheme = request.scheme
         base = f"{scheme}://{host}"
-        epg_ready = bool(app.proxy and app.proxy.epg_path.exists()) if app.proxy else False
+        epg_ready = _epg_path.exists()
         return jsonify({
             "m3u_url": f"{base}/proxy/playlist.m3u",
             "epg_url": f"{base}/proxy/epg.xml",
+            "m3u_file": str(_proxy_m3u_path),
+            "epg_file": str(_epg_path),
             "channels": len(app.proxy.channel_map) if app.proxy else 0,
             "epg_ready": epg_ready,
             "proxy_running": app.proxy_running,
@@ -325,17 +365,32 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
     @app.route("/proxy/playlist.m3u")
     @app.route("/proxy/playlist")
     def px_m3u():
-        if not app.proxy: return Response("Proxy not configured", status=503)
-        base = f"{request.scheme}://{request.host}/proxy"
-        return Response(app.proxy.generate_proxy_m3u(base), mimetype="audio/x-mpegurl",
-                        headers={"Content-Disposition": "inline; filename=playlist.m3u"})
+        # If proxy is running, generate fresh proxy M3U (also writes to disk)
+        if app.proxy and app.proxy_running:
+            base = f"{request.scheme}://{request.host}/proxy"
+            content = app.proxy.generate_proxy_m3u(base)
+            # Update the static file on disk with the correct base URL
+            app.proxy.write_proxy_m3u(base)
+            return Response(content, mimetype="audio/x-mpegurl",
+                            headers={"Content-Disposition": "inline; filename=playlist.m3u"})
+        # Proxy stopped or not initialized — serve static proxy M3U from disk if it exists
+        if _proxy_m3u_path.exists():
+            return send_file(str(_proxy_m3u_path), mimetype="audio/x-mpegurl")
+        # Last resort — serve raw M3U with direct provider URLs (streams still work, just not proxied)
+        if _raw_m3u_path.exists():
+            return send_file(str(_raw_m3u_path), mimetype="audio/x-mpegurl")
+        return Response("#EXTM3U\n# No channels yet — run a scan first\n", mimetype="audio/x-mpegurl")
 
     @app.route("/proxy/epg.xml")
     @app.route("/proxy/xmltv.xml")
     def px_epg():
+        # Always serve EPG from disk if it exists — regardless of proxy state
+        if _epg_path.exists():
+            return send_file(str(_epg_path), mimetype="application/xml")
+        # Try proxy object path as fallback
         if app.proxy and app.proxy.epg_path.exists():
             return send_file(str(app.proxy.epg_path), mimetype="application/xml")
-        return Response("EPG not yet generated — run a scan first", status=404)
+        return Response('<?xml version="1.0" encoding="UTF-8"?>\n<tv></tv>', mimetype="application/xml")
 
     @app.route("/proxy/stream/<f>")
     def px_stream(f):
@@ -367,6 +422,92 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
                 if active:
                     active.remove_client(cid)
         return Response(gen(), mimetype="video/mp2t", headers={"Cache-Control":"no-cache, no-store","Connection":"keep-alive","Access-Control-Allow-Origin":"*"})
+
+    # --- HDHomeRun Tuner Emulation ---
+    # Jellyfin discovers this as an HDHomeRun device — no Threadfin needed.
+    # Setup: Jellyfin → Dashboard → Live TV → Add Tuner → HD Homerun → http://HOST:PORT
+
+    @app.route("/discover.json")
+    def hdhr_discover():
+        base_url = f"{request.scheme}://{request.host}"
+        return jsonify({
+            "BaseURL": base_url,
+            "DeviceAuth": "IPTV-Scanner",
+            "DeviceID": device_id,
+            "FirmwareName": "bin_1.0",
+            "FirmwareVersion": "1.0.0",
+            "FriendlyName": tuner_cfg.get("device_name", "IPTV Scanner"),
+            "LineupURL": f"{base_url}/lineup.json",
+            "Manufacturer": "Silicondust",
+            "ModelNumber": "HDTC-2US",
+            "TunerCount": tuner_cfg.get("tuner_count", 2),
+        })
+
+    @app.route("/device.xml")
+    def hdhr_device_xml():
+        base_url = f"{request.scheme}://{request.host}"
+        name = tuner_cfg.get("device_name", "IPTV Scanner")
+        xml = f'''<?xml version="1.0" encoding="UTF-8"?>
+<root xmlns="urn:schemas-upnp-org:device-1-0">
+  <URLBase>{base_url}</URLBase>
+  <specVersion><major>1</major><minor>0</minor></specVersion>
+  <device>
+    <deviceType>urn:schemas-upnp-org:device:MediaServer:1</deviceType>
+    <friendlyName>{name}</friendlyName>
+    <manufacturer>Silicondust</manufacturer>
+    <modelName>HDTC-2US</modelName>
+    <modelNumber>HDTC-2US</modelNumber>
+    <serialNumber>{device_id}</serialNumber>
+    <UDN>uuid:{device_id}</UDN>
+  </device>
+</root>'''
+        return Response(xml, mimetype="application/xml")
+
+    @app.route("/lineup_status.json")
+    def hdhr_lineup_status():
+        return jsonify({"ScanInProgress": 0, "ScanPossible": 1, "Source": "Cable", "SourceList": ["Cable"]})
+
+    @app.route("/lineup.json")
+    def hdhr_lineup():
+        base_url = f"{request.scheme}://{request.host}"
+        lineup = []
+        if app.proxy and app.proxy.channel_map:
+            for stream_key, ch_info in sorted(app.proxy.channel_map.items(), key=lambda x: x[1].get("name", "")):
+                lineup.append({
+                    "GuideName": ch_info.get("name", f"Ch {stream_key}"),
+                    "GuideNumber": stream_key,
+                    "URL": f"{base_url}/proxy/stream/{stream_key}.ts",
+                })
+        elif scanner and scanner.state.get("channels"):
+            for stream_id, ch_info in sorted(scanner.state["channels"].items(), key=lambda x: x[1].get("name", "")):
+                lineup.append({
+                    "GuideName": ch_info.get("name", f"Ch {stream_id}"),
+                    "GuideNumber": stream_id,
+                    "URL": f"{base_url}/proxy/stream/{stream_id}.ts",
+                })
+        return jsonify(lineup)
+
+    @app.route("/lineup.json", methods=["POST"])
+    @app.route("/lineup.post", methods=["GET", "POST"])
+    def hdhr_lineup_post():
+        return Response("", status=200)
+
+    @app.route("/api/tuner/info")
+    def api_tuner_info():
+        base_url = f"{request.scheme}://{request.host}"
+        return jsonify({
+            "enabled": tuner_cfg.get("enabled", True),
+            "device_id": device_id,
+            "device_name": tuner_cfg.get("device_name", "IPTV Scanner"),
+            "tuner_count": tuner_cfg.get("tuner_count", 2),
+            "channels": len(app.proxy.channel_map) if app.proxy else 0,
+            "active_streams": len(app.proxy.streams) if app.proxy else 0,
+            "discover_url": f"{base_url}/discover.json",
+            "lineup_url": f"{base_url}/lineup.json",
+            "epg_url": f"{base_url}/proxy/epg.xml",
+            "jellyfin_tuner_url": base_url,
+            "proxy_running": app.proxy_running,
+        })
 
     # --- History/Logs ---
     @app.route("/api/history")

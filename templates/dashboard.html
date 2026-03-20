@@ -100,7 +100,7 @@
 </style></head><body>
 <div class="app">
 <div class="sb" id="sb"><div class="logo"><span>IPTV</span> Stream Mgr</div><div class="nav">
-<div class="ni a" data-page="dashboard">Dashboard</div><div class="ni" data-page="categories">Categories</div><div class="ni" data-page="library">Library</div><div class="ni" data-page="providers">Providers</div><div class="ni" data-page="proxy">Proxy</div><div class="ni" data-page="history">History</div><div class="ni" data-page="logs">Logs</div><div class="ni" data-page="settings">Settings</div></div></div>
+<div class="ni a" data-page="dashboard">Dashboard</div><div class="ni" data-page="categories">Categories</div><div class="ni" data-page="library">Library</div><div class="ni" data-page="livetv">Live TV</div><div class="ni" data-page="providers">Providers</div><div class="ni" data-page="proxy">Proxy</div><div class="ni" data-page="history">History</div><div class="ni" data-page="logs">Logs</div><div class="ni" data-page="settings">Settings</div></div></div>
 <div class="mn"><div class="hd"><div style="display:flex;align-items:center;gap:10px"><button class="hamburger" onclick="document.getElementById('sb').classList.toggle('open')">&#9776;</button><h1 id="pt">Dashboard</h1></div>
 <div class="bgrp"><button class="btn bp" id="b1" onclick="doScan()">&#9654; Scan</button><button class="btn bd bsm" id="b2" onclick="doStop()" style="display:none">&#9632; Stop</button><button class="btn bs bsm" onclick="doDedup()">&#10006;&#10006; Dedup</button><button class="btn bg bsm" onclick="doJF()">&#8635; Jellyfin</button></div></div>
 <div class="ct">
@@ -174,8 +174,32 @@
 <div class="pn"><div class="ph">Providers<button class="btn bsm bp" onclick="document.getElementById('apnl').style.display='block'">+ Add</button></div><div class="pb" id="plist">Loading...</div></div>
 <div class="pn" id="apnl" style="display:none"><div class="ph">Add Provider</div><div class="pb"><div class="fr3"><div class="fg"><label>Name</label><input id="ap-n"></div><div class="fg"><label>Server</label><input id="ap-s"></div><div class="fg"><label>Username</label><input id="ap-u"></div></div><div class="fg"><label>Password</label><input id="ap-p" type="password"></div><div class="bgrp"><button class="btn bp" onclick="addP()">Add</button><button class="btn bs" onclick="document.getElementById('apnl').style.display='none'">Cancel</button></div></div></div>
 <div class="pn" id="epnl" style="display:none"><div class="ph">Update Provider</div><div class="pb"><p style="font-size:11px;color:var(--muted);margin-bottom:10px">Enable rewrite to update .strm files without rescanning.</p><input type="hidden" id="ep-id"><div class="fr3"><div class="fg"><label>Name</label><input id="ep-n"></div><div class="fg"><label>Server</label><input id="ep-s"></div><div class="fg"><label>Username</label><input id="ep-u"></div></div><div class="fg"><label>Password (blank=keep)</label><input id="ep-p" type="password"></div><label class="tg" style="margin-bottom:10px"><input type="checkbox" id="ep-rw"><div class="sl"></div>Rewrite .strm files</label><div id="ep-r" style="margin-bottom:8px"></div><div class="bgrp"><button class="btn bp" onclick="updP()">Save</button><button class="btn bs" onclick="document.getElementById('epnl').style.display='none'">Cancel</button></div></div></div></div>
+<!-- LIVE TV -->
+<div class="pg" id="page-livetv">
+<div class="pn"><div class="ph">Live TV Tuner</div>
+<div class="pb">
+  <p style="font-size:12px;color:var(--muted);margin-bottom:14px">Built-in HDHomeRun tuner emulator. Jellyfin connects directly to this app for live TV and recordings — no Threadfin or TVHeadend needed.</p>
+  <div class="sg" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">
+    <div class="sc"><div class="lb">Device ID</div><div class="vl bl" id="tv-did" style="font-size:16px">-</div></div>
+    <div class="sc"><div class="lb">Channels</div><div class="vl gn" id="tv-ch">0</div></div>
+    <div class="sc"><div class="lb">Tuners</div><div class="vl og" id="tv-tc">2</div></div>
+    <div class="sc"><div class="lb">Active Streams</div><div class="vl pr" id="tv-as">0</div></div>
+  </div>
+  <p style="font-size:13px;font-weight:700;margin:16px 0 8px">Jellyfin Setup</p>
+  <div class="ib" style="line-height:2">
+    <b>Step 1:</b> Go to Jellyfin <b>Dashboard &rarr; Live TV</b><br>
+    <b>Step 2:</b> Click <b>+</b> next to <b>Tuner Devices</b> &rarr; select <b>HD Homerun</b><br>
+    <b>Step 3:</b> Enter tuner URL: <b><span id="tv-url" style="color:var(--accent)">loading...</span></b><br>
+    <b>Step 4:</b> Click <b>Save</b> &mdash; Jellyfin will discover your channels automatically<br>
+    <b>Step 5:</b> Click <b>+</b> next to <b>TV Guide Data Providers</b> &rarr; select <b>XMLTV</b><br>
+    <b>Step 6:</b> Enter EPG URL: <b><span id="tv-epg" style="color:var(--accent)">loading...</span></b><br>
+    <b>Step 7:</b> Save and go to <b>Live TV</b> in Jellyfin &mdash; your channels are ready!
+  </div>
+  <p style="font-size:13px;font-weight:700;margin:16px 0 8px">Endpoints</p>
+  <div class="ib" id="tv-ep">Loading...</div>
+</div></div></div>
 <!-- PROXY -->
-<div class="pg" id="page-proxy"><div class="pn"><div class="ph">Restream Proxy<div class="bgrp"><button class="btn bsm bg" id="px1" onclick="pxOn()">Start</button><button class="btn bsm bd" id="px2" onclick="pxOff()" style="display:none">Stop</button></div></div><div class="pb"><p style="font-size:12px;color:var(--muted);margin-bottom:10px">Shares one upstream connection for live TV across devices.</p><div class="sg" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))"><div class="sc"><div class="lb">Streams</div><div class="vl bl" id="pxs">0</div></div><div class="sc"><div class="lb">Clients</div><div class="vl gn" id="pxc">0</div></div><div class="sc"><div class="lb">Channels</div><div class="vl og" id="pxch">0</div></div></div><p style="font-size:12px;font-weight:600;margin:10px 0 4px">Threadfin URLs</p><div class="ib" id="pxu">Start proxy to see URLs.</div></div></div></div>
+<div class="pg" id="page-proxy"><div class="pn"><div class="ph">Restream Proxy<div class="bgrp"><button class="btn bsm bg" id="px1" onclick="pxOn()">Start</button><button class="btn bsm bd" id="px2" onclick="pxOff()" style="display:none">Stop</button></div></div><div class="pb"><p style="font-size:12px;color:var(--muted);margin-bottom:10px">Shares one upstream connection for live TV across devices. Playlist and EPG are always available even when proxy streaming is stopped.</p><div class="sg" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))"><div class="sc"><div class="lb">Streams</div><div class="vl bl" id="pxs">0</div></div><div class="sc"><div class="lb">Clients</div><div class="vl gn" id="pxc">0</div></div><div class="sc"><div class="lb">Channels</div><div class="vl og" id="pxch">0</div></div></div><p style="font-size:12px;font-weight:600;margin:10px 0 4px">Threadfin URLs (HTTP)</p><div class="ib" id="pxu">Loading...</div><p style="font-size:12px;font-weight:600;margin:10px 0 4px">File Paths (shared volume — most reliable)</p><div class="ib" id="pxf">Loading...</div><p style="font-size:10px;color:var(--muted);margin-top:6px">Tip: If Threadfin shares a Docker volume, use file paths instead of HTTP URLs. They survive restarts and never go down.</p></div></div></div>
 <!-- HISTORY -->
 <div class="pg" id="page-history"><div class="pn"><div class="ph">Scan History</div><div class="pb"><table class="ht"><thead><tr><th>Date</th><th>Dur</th><th>Movies</th><th>Eps</th><th>Live</th><th></th></tr></thead><tbody id="hb"><tr><td colspan="6" style="color:var(--muted)">Loading...</td></tr></tbody></table></div></div></div>
 <!-- LOGS -->
@@ -282,7 +306,7 @@ document.querySelectorAll(".ni").forEach(function(i){i.addEventListener("click",
   document.querySelectorAll(".ni").forEach(function(n){n.classList.remove("a")});i.classList.add("a");
   document.querySelectorAll(".pg").forEach(function(x){x.classList.remove("a")});G("page-"+i.dataset.page).classList.add("a");
   G("pt").textContent=i.textContent.trim();G("sb").classList.remove("open");
-  var p=i.dataset.page;if(p==="history")ldH();if(p==="logs")ldL();if(p==="settings")ldSt();if(p==="providers")ldPr();if(p==="library")ldLib()})});
+  var p=i.dataset.page;if(p==="history")ldH();if(p==="logs")ldL();if(p==="settings")ldSt();if(p==="providers")ldPr();if(p==="library")ldLib();if(p==="livetv")ldTV()})});
 
 function poll(){A("/api/status").then(function(d){
   var l=d.library||{},dd=d.dedup_stats||{};
@@ -306,8 +330,10 @@ function poll(){A("/api/status").then(function(d){
   else jf.innerHTML='<span style="color:var(--muted)">Not configured</span>';
 
   if(d.proxy){G("pxs").textContent=d.proxy.active_streams||0;G("pxc").textContent=d.proxy.active_clients||0;G("pxch").textContent=F(d.proxy.channels_loaded);
-    if(d.proxy.running){G("px1").style.display="none";G("px2").style.display="";G("pxu").innerHTML="M3U: <a href='/proxy/playlist.m3u'>http://"+location.host+"/proxy/playlist.m3u</a><br>EPG: <a href='/proxy/epg.xml'>http://"+location.host+"/proxy/epg.xml</a>"}
-    else{G("px1").style.display="";G("px2").style.display="none";G("pxu").textContent="Start proxy to see URLs."}}
+    if(d.proxy.running){G("px1").style.display="none";G("px2").style.display=""}
+    else{G("px1").style.display="";G("px2").style.display="none"}
+    G("pxu").innerHTML="M3U: <a href='/proxy/playlist.m3u'>http://"+location.host+"/proxy/playlist.m3u</a>"+(d.proxy.running?" (proxied)":" (direct)")+"<br>EPG: <a href='/proxy/epg.xml'>http://"+location.host+"/proxy/epg.xml</a>";
+    if(!window._pxfLoaded){window._pxfLoaded=true;A("/api/proxy/info").then(function(pi){G("pxf").innerHTML="M3U: "+pi.m3u_file+"<br>EPG: "+pi.epg_file}).catch(function(){G("pxf").textContent="N/A"})}}}
 }).catch(function(e){console.error(e)})}
 
 function doScan(){A("/api/scan",{method:"POST"});T("Scan started")}
@@ -442,7 +468,19 @@ function updP(){var d={id:parseInt(G("ep-id").value),name:G("ep-n").value,server
 function delP(id,n){if(!confirm("Delete "+n+"?"))return;A("/api/providers/delete",{method:"POST",body:JSON.stringify({id:id})}).then(function(){T("Deleted");ldPr()})}
 
 function pxOn(){A("/api/proxy/start",{method:"POST"}).then(function(){T("Started");poll()})}
-function pxOff(){A("/api/proxy/stop",{method:"POST"}).then(function(){T("Stopped");poll()})}
+function pxOff(){A("/api/proxy/stop",{method:"POST"}).then(function(d){T(d.error||"Stopped",!d.error);poll()})}
+
+function ldTV(){A("/api/tuner/info").then(function(d){
+  G("tv-did").textContent=d.device_id;
+  G("tv-ch").textContent=F(d.channels);
+  G("tv-tc").textContent=d.tuner_count;
+  G("tv-as").textContent=d.active_streams||0;
+  G("tv-url").textContent=d.jellyfin_tuner_url;
+  G("tv-epg").textContent=d.epg_url;
+  G("tv-ep").innerHTML='<a href="'+d.discover_url+'" style="color:var(--accent)">'+d.discover_url+'</a> &mdash; Device discovery<br>'
+    +'<a href="'+d.lineup_url+'" style="color:var(--accent)">'+d.lineup_url+'</a> &mdash; Channel lineup ('+d.channels+' channels)<br>'
+    +'<a href="'+d.epg_url+'" style="color:var(--accent)">'+d.epg_url+'</a> &mdash; TV Guide (XMLTV)';
+})}
 
 function ldH(){A("/api/history").then(function(d){var tb=G("hb");
   if(!d.length){tb.innerHTML='<tr><td colspan="6" style="color:var(--muted)">None</td></tr>';return}

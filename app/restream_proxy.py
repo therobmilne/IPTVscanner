@@ -131,8 +131,13 @@ class RestreamProxy:
         # Paths
         paths = config["paths"]
         self.live_tv_dir = Path(os.path.expanduser(paths.get("live_tv", "~/iptv-scanner/LiveTV")))
-        self.m3u_path = self.live_tv_dir / "iptv_channels.m3u"
+        self.m3u_path = self.live_tv_dir / "iptv_channels.m3u"       # direct provider URLs
+        self.proxy_m3u_path = self.live_tv_dir / "iptv_proxy.m3u"    # proxy-rewritten URLs
         self.epg_path = self.live_tv_dir / "epg.xml"
+
+        # Dashboard base URL for writing static proxy M3U
+        dash_port = config.get("dashboard", {}).get("port", 8888)
+        self.proxy_base_url = f"http://localhost:{dash_port}/proxy"
 
         # Active streams
         self.streams = {}  # stream_key -> ActiveStream
@@ -192,8 +197,25 @@ class RestreamProxy:
 
             self.channel_map = new_map
             logger.info(f"Loaded {len(self.channel_map)} channels from M3U")
+            # Write static proxy M3U to disk so Threadfin can read it directly
+            self.write_proxy_m3u()
         except Exception as e:
             logger.error(f"Failed to load M3U: {e}")
+
+    def write_proxy_m3u(self, base_url: str = None):
+        """Write the proxy-rewritten M3U to disk as a static file.
+        Threadfin can point to this file directly (via shared volume) or via HTTP.
+        This file persists across app restarts."""
+        if not self.m3u_path.exists():
+            return
+        base = base_url or self.proxy_base_url
+        try:
+            content = self.generate_proxy_m3u(base)
+            with open(self.proxy_m3u_path, "w", encoding="utf-8") as f:
+                f.write(content)
+            logger.info(f"Wrote proxy M3U to {self.proxy_m3u_path} ({len(self.channel_map)} channels)")
+        except Exception as e:
+            logger.error(f"Failed to write proxy M3U: {e}")
 
     def generate_proxy_m3u(self, base_url: str) -> str:
         """Generate a rewritten M3U with URLs pointing to this proxy."""
