@@ -26,9 +26,22 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
     app.last_enrich = {"enriched": 0, "failed": 0, "skipped": 0}
     app.scheduler = None
 
-    # Channel enable/disable state
-    enabled_channels_file = data_dir / "enabled_channels.json"
-    app.enabled_channels = _load_json(enabled_channels_file, {})
+    # Channel mapping state (Threadfin-style)
+    # Maps stream_id -> {enabled, ch_num, custom_name, group, epg_id}
+    channel_map_file = data_dir / "channel_map.json"
+    app.channel_map = _load_json(channel_map_file, {})
+    # Legacy compat: migrate old enabled_channels.json
+    old_enabled = data_dir / "enabled_channels.json"
+    if old_enabled.exists() and not app.channel_map:
+        try:
+            old = _load_json(old_enabled, {})
+            n = 1
+            for sid in old:
+                app.channel_map[sid] = {"enabled": True, "ch_num": n, "custom_name": "", "group": "", "epg_id": ""}
+                n += 1
+            _save_json(channel_map_file, app.channel_map)
+            logger.info(f"Migrated {len(app.channel_map)} channels from old format")
+        except: pass
 
     # Playlists state
     playlists_file = data_dir / "playlists.json"
@@ -143,7 +156,7 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
         if app.proxy:
             px = app.proxy.get_stats()
             px["running"] = app.proxy_running
-        enabled_count = sum(1 for v in app.enabled_channels.values() if v)
+        enabled_count = sum(1 for v in app.channel_map.values() if v.get("enabled"))
         return jsonify({
             "library": lib, "last_scan": history[-1] if history else None,
             "scan_running": app.scan_running, "scan_progress": scanner.progress if scanner else {},
@@ -454,9 +467,10 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
         return jsonify({"message":"Saved"})
 
     # =====================================================================
-    #  LIVE TV CHANNEL MANAGEMENT
-    #  Only loads channels from whitelisted live categories.
-    #  Caches result for 5 min to avoid hammering the provider API.
+    #  LIVE TV CHANNEL MANAGEMENT (Threadfin-style mapping)
+    #  Step 1: Categories page selects which groups to pull from
+    #  Step 2: This page lets you map each channel: enable, number, name, group, EPG
+    #  Caches provider fetch for 5 min.
     # =====================================================================
 
     def _get_live_channels():
@@ -469,7 +483,6 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
         try:
             cats = scanner.client.get_live_categories()
             cat_map = {str(c.get("category_id","") or ""): c.get("category_name","") for c in cats}
-            # Only fetch channels from whitelisted categories
             all_ch = []
             if live_cat_ids:
                 for cat_id in live_cat_ids:
@@ -491,46 +504,60 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
         result = []
         for ch in all_ch:
             sid = str(ch.get("stream_id", ""))
+            mapping = app.channel_map.get(sid, {})
             result.append({
-                "stream_id": sid, "name": ch.get("name", ""),
+                "stream_id": sid,
+                "name": ch.get("name", ""),
                 "logo": ch.get("stream_icon", ""),
                 "category_id": str(ch.get("category_id", "") or ""),
                 "category": ch.get("_cat_name", ""),
                 "epg_id": ch.get("epg_channel_id", ""),
-                "enabled": app.enabled_channels.get(sid, False),
+                # Mapping overrides
+                "enabled": mapping.get("enabled", False),
+                "ch_num": mapping.get("ch_num", 0),
+                "custom_name": mapping.get("custom_name", ""),
+                "group": mapping.get("group", ""),
+                "mapped_epg": mapping.get("epg_id", ""),
             })
         result.sort(key=lambda x: (x["category"], x["name"]))
         categories = sorted(set(c["category"] for c in result if c["category"]))
-
         app._channels_cache = {"ts": time.time(), "data": result, "categories": categories}
         return result, categories
 
     @app.route("/api/channels")
     def api_channels():
-        """Get live channels (whitelisted categories only), paginated."""
+        """Get live channels with mapping data, paginated."""
         channels, categories = _get_live_channels()
 
         q = request.args.get("search", "").lower()
         cat_filter = request.args.get("category", "")
+        show = request.args.get("show", "")  # "mapped" = only enabled
         pg = int(request.args.get("page", 1))
         pp = int(request.args.get("per_page", 200))
 
-        # Re-sync enabled state from app state
+        # Re-sync mapping state
         for ch in channels:
-            ch["enabled"] = app.enabled_channels.get(ch["stream_id"], False)
+            m = app.channel_map.get(ch["stream_id"], {})
+            ch["enabled"] = m.get("enabled", False)
+            ch["ch_num"] = m.get("ch_num", 0)
+            ch["custom_name"] = m.get("custom_name", "")
+            ch["group"] = m.get("group", "")
+            ch["mapped_epg"] = m.get("epg_id", "")
 
         filtered = channels
         if q:
-            filtered = [c for c in filtered if q in c["name"].lower() or q in c["category"].lower()]
+            filtered = [c for c in filtered if q in c["name"].lower() or q in c["category"].lower()
+                        or q in c.get("custom_name","").lower()]
         if cat_filter:
             filtered = [c for c in filtered if c["category_id"] == cat_filter]
+        if show == "mapped":
+            filtered = [c for c in filtered if c["enabled"]]
 
         total = len(filtered)
-        enabled_count = sum(1 for c in filtered if c["enabled"])
+        enabled_count = sum(1 for c in channels if c["enabled"])
         start = (pg - 1) * pp
         page_items = filtered[start:start + pp]
 
-        # Build category options with counts
         cat_options = []
         for cat in categories:
             cnt = sum(1 for c in channels if c["category"] == cat)
@@ -538,32 +565,69 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
             cat_options.append({"id": cat_id, "name": cat, "count": cnt})
 
         return jsonify({"channels": page_items, "categories": cat_options,
-            "total": total, "enabled_count": enabled_count,
+            "total": total, "enabled_count": enabled_count, "total_all": len(channels),
             "page": pg, "pages": max(1, -(-total // pp))})
+
+    @app.route("/api/channels/map", methods=["POST"])
+    def api_channels_map():
+        """Update mapping for a single channel (Threadfin-style inline edit)."""
+        d = request.json or {}
+        sid = str(d.get("stream_id", ""))
+        if not sid:
+            return jsonify({"error": "stream_id required"}), 400
+
+        existing = app.channel_map.get(sid, {"enabled": False, "ch_num": 0, "custom_name": "", "group": "", "epg_id": ""})
+        for field in ("enabled", "ch_num", "custom_name", "group", "epg_id"):
+            if field in d:
+                existing[field] = d[field]
+        app.channel_map[sid] = existing
+        _save_json(channel_map_file, app.channel_map)
+        return jsonify({"message": "Mapped"})
+
+    @app.route("/api/channels/bulk", methods=["POST"])
+    def api_channels_bulk():
+        """Bulk enable/disable channels (select all filtered, deselect all, etc.)."""
+        d = request.json or {}
+        action = d.get("action", "")  # "enable", "disable", "auto_number"
+        stream_ids = d.get("stream_ids", [])
+
+        if action == "enable":
+            next_num = max((m.get("ch_num", 0) for m in app.channel_map.values()), default=0) + 1
+            for sid in stream_ids:
+                sid = str(sid)
+                if sid not in app.channel_map:
+                    app.channel_map[sid] = {"enabled": True, "ch_num": next_num, "custom_name": "", "group": "", "epg_id": ""}
+                    next_num += 1
+                else:
+                    app.channel_map[sid]["enabled"] = True
+                    if not app.channel_map[sid].get("ch_num"):
+                        app.channel_map[sid]["ch_num"] = next_num
+                        next_num += 1
+        elif action == "disable":
+            for sid in stream_ids:
+                sid = str(sid)
+                if sid in app.channel_map:
+                    app.channel_map[sid]["enabled"] = False
+        elif action == "auto_number":
+            # Renumber all enabled channels sequentially
+            enabled = [(sid, m) for sid, m in app.channel_map.items() if m.get("enabled")]
+            enabled.sort(key=lambda x: x[1].get("ch_num", 9999))
+            for i, (sid, m) in enumerate(enabled, 1):
+                m["ch_num"] = i
+
+        _save_json(channel_map_file, app.channel_map)
+        return jsonify({"message": f"Updated {len(stream_ids)} channels"})
 
     @app.route("/api/channels/save", methods=["POST"])
     def api_channels_save():
-        """Save enabled channels and regenerate M3U + EPG + restart proxy."""
-        d = request.json or {}
-        enabled_ids = d.get("enabled", [])
-        app.enabled_channels = {str(sid): True for sid in enabled_ids}
-        _save_json(enabled_channels_file, app.enabled_channels)
-        count = _regenerate_m3u(scanner, config, app.enabled_channels)
+        """Save current mapping and regenerate M3U + EPG + restart proxy."""
+        _save_json(channel_map_file, app.channel_map)
+        enabled = {sid: True for sid, m in app.channel_map.items() if m.get("enabled")}
+        count = _regenerate_m3u_mapped(scanner, config, app.channel_map)
         if app.proxy:
             app.proxy.load_channels()
-        app._channels_cache = None  # force re-sync enabled state
-        return jsonify({"message": f"Saved {count} channels", "count": count})
-
-    @app.route("/api/channels/toggle", methods=["POST"])
-    def api_channels_toggle():
-        d = request.json or {}
-        sid = str(d.get("stream_id", ""))
-        if d.get("enabled", True):
-            app.enabled_channels[sid] = True
-        else:
-            app.enabled_channels.pop(sid, None)
-        _save_json(enabled_channels_file, app.enabled_channels)
-        return jsonify({"message": "Toggled"})
+        app._channels_cache = None
+        return jsonify({"message": f"Saved & regenerated {count} channels", "count": count})
 
     # =====================================================================
     #  PLAYLISTS (replaces VOD Library)
@@ -676,17 +740,23 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
 
     @app.route("/lineup.json")
     def hdhr_lineup():
+        """HDHomeRun lineup using mapped channel numbers and custom names."""
         if not app.proxy:
             return jsonify([])
         base = f"{request.scheme}://{request.host}"
         lineup = []
-        guide_num = 1
         for sk, info in app.proxy.channel_map.items():
-            if not app.enabled_channels.get(sk, False):
+            mapping = app.channel_map.get(sk, {})
+            if not mapping.get("enabled"):
                 continue
-            lineup.append({"GuideNumber": str(guide_num), "GuideName": info.get("name", sk),
-                "URL": f"{base}/proxy/stream/{sk}.ts"})
-            guide_num += 1
+            ch_num = mapping.get("ch_num", 0)
+            display_name = mapping.get("custom_name") or info.get("name", sk)
+            lineup.append({
+                "GuideNumber": str(ch_num) if ch_num else str(len(lineup) + 1),
+                "GuideName": display_name,
+                "URL": f"{base}/proxy/stream/{sk}.ts",
+            })
+        lineup.sort(key=lambda x: int(x["GuideNumber"]) if x["GuideNumber"].isdigit() else 9999)
         return jsonify(lineup)
 
     # --- Remaining ---
@@ -736,11 +806,19 @@ def _load_json(path, default=None):
 def _save_json(path, data):
     with open(path, "w") as f: json.dump(data, f, indent=2)
 
-def _regenerate_m3u(scanner, config, enabled_channels):
-    """Regenerate iptv_channels.m3u with only enabled channels."""
+def _regenerate_m3u_mapped(scanner, config, channel_map):
+    """Regenerate iptv_channels.m3u using Threadfin-style channel mappings.
+    Uses custom names, group overrides, and EPG ID remapping."""
     live_dir = Path(config["paths"]["live_tv"])
     live_dir.mkdir(parents=True, exist_ok=True)
     m3u_path = live_dir / "iptv_channels.m3u"
+
+    enabled = {sid: m for sid, m in channel_map.items() if m.get("enabled")}
+    if not enabled:
+        # Write empty M3U
+        with open(m3u_path, "w") as f: f.write('#EXTM3U\n')
+        return 0
+
     try:
         cats = scanner.client.get_live_categories()
         cat_map = {str(c.get("category_id","") or ""): c.get("category_name","") for c in cats}
@@ -748,29 +826,46 @@ def _regenerate_m3u(scanner, config, enabled_channels):
     except Exception as e:
         logger.error(f"Failed to fetch channels: {e}")
         return 0
+
+    # Build lookup: stream_id -> provider channel data
+    ch_lookup = {}
+    for ch in all_ch:
+        ch_lookup[str(ch.get("stream_id", ""))] = ch
+
+    # Sort by channel number
+    sorted_mapped = sorted(enabled.items(), key=lambda x: x[1].get("ch_num", 9999))
+
     count = 0
     with open(m3u_path, "w", encoding="utf-8") as f:
         f.write('#EXTM3U\n')
-        for ch in all_ch:
-            sid = str(ch.get("stream_id", ""))
-            if sid not in enabled_channels: continue
-            name = ch.get("name", "Unknown")
+        for sid, mapping in sorted_mapped:
+            ch = ch_lookup.get(sid)
+            if not ch:
+                continue
+            # Apply mapping overrides
+            name = mapping.get("custom_name") or ch.get("name", "Unknown")
             logo = ch.get("stream_icon", "")
             cat_id = str(ch.get("category_id", "") or "")
-            group = cat_map.get(cat_id, "")
-            epg_id = ch.get("epg_channel_id", "")
-            f.write(f'#EXTINF:-1 tvg-id="{epg_id}" tvg-name="{name}" tvg-logo="{logo}" group-title="{group}",{name}\n')
+            group = mapping.get("group") or cat_map.get(cat_id, "")
+            epg_id = mapping.get("epg_id") or ch.get("epg_channel_id", "")
+            ch_num = mapping.get("ch_num", count + 1)
+
+            f.write(f'#EXTINF:-1 tvg-id="{epg_id}" tvg-name="{name}" tvg-logo="{logo}" '
+                    f'tvg-chno="{ch_num}" group-title="{group}",{name}\n')
             f.write(scanner.client.build_live_url(int(sid)) + '\n')
             count += 1
-    logger.info(f"Regenerated M3U with {count} channels")
-    # Regenerate EPG
+
+    logger.info(f"Regenerated M3U with {count} mapped channels")
+
+    # Regenerate filtered EPG
     if count > 0:
         wanted_ids = set()
-        for ch in all_ch:
-            sid = str(ch.get("stream_id", ""))
-            if sid in enabled_channels:
-                eid = ch.get("epg_channel_id", "")
-                if eid: wanted_ids.add(eid)
+        for sid, mapping in enabled.items():
+            ch = ch_lookup.get(sid)
+            if ch:
+                eid = mapping.get("epg_id") or ch.get("epg_channel_id", "")
+                if eid:
+                    wanted_ids.add(eid)
         if wanted_ids:
             try:
                 from .scanner import IPTVScanner
@@ -785,6 +880,7 @@ def _regenerate_m3u(scanner, config, enabled_channels):
                 except: pass
             except Exception as e:
                 logger.error(f"EPG regen failed: {e}")
+
     return count
 
 def _get_playlist_items(pl, state):

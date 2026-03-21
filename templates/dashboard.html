@@ -42,11 +42,19 @@
 .tbl td{padding:8px 12px;border-bottom:1px solid var(--border)}.tbl tr:last-child td{border:none}.tbl tr:hover td{background:rgba(88,166,255,.03)}
 .badge{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600}.badge-g{background:rgba(63,185,80,.15);color:var(--green)}.badge-r{background:rgba(248,81,73,.15);color:var(--red)}.badge-b{background:rgba(88,166,255,.15);color:var(--accent)}
 .srch{padding:7px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;width:240px}.srch:focus{outline:none;border-color:var(--accent)}
-.ch-row{display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid var(--border)}.ch-row:hover{background:rgba(88,166,255,.03)}
-.ch-row input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;cursor:pointer}
-.ch-logo{width:32px;height:32px;border-radius:4px;object-fit:contain;background:var(--bg3)}.ch-name{font-weight:600;font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ch-cat{font-size:11px;color:var(--muted);width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ch-epg{font-size:10px;width:60px;text-align:center}
-.ch-list{max-height:calc(100vh - 260px);overflow-y:auto}
+.ch-row{display:flex;align-items:center;gap:8px;padding:5px 12px;border-bottom:1px solid var(--border);font-size:12px;transition:background .1s}
+.ch-row:hover{background:rgba(88,166,255,.04)}
+.ch-row.mapped{background:rgba(63,185,80,.03);border-left:2px solid var(--green)}
+.ch-row input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;cursor:pointer;flex-shrink:0}
+.ch-logo{width:32px;height:32px;border-radius:4px;object-fit:contain;background:var(--bg3);flex-shrink:0}
+.ch-orig{flex:1;min-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500}
+.ch-input{padding:3px 6px;background:var(--bg2);border:1px solid var(--border);border-radius:4px;color:var(--text);font-size:11px;font-family:inherit}
+.ch-input:focus{outline:none;border-color:var(--accent)}
+.ch-input.num{width:50px;text-align:center}
+.ch-input.name{width:180px}
+.ch-input.grp{width:140px}
+.ch-epg{width:60px;text-align:center;flex-shrink:0}
+.ch-list{max-height:calc(100vh - 320px);overflow-y:auto}
 .prog-bar{height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;margin:6px 0}.prog-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .5s}
 .prog-info{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
 .steps{display:flex;gap:4px;margin:6px 0;flex-wrap:wrap}.step{padding:3px 8px;border-radius:4px;font-size:10px;background:var(--bg3);color:var(--muted);border:1px solid var(--border)}
@@ -109,20 +117,38 @@
 <div class="card"><div class="card-head">Jellyfin</div><div class="card-body" id="jfSt"><span style="color:var(--muted)">Checking...</span></div></div>
 </div>
 
-<!-- LIVE TV -->
+<!-- LIVE TV - Threadfin-style Channel Mapping -->
 <div class="page" id="page-livetv">
-<div class="card">
-  <div class="card-head"><span>Live TV Channels <small style="color:var(--muted);font-weight:400">(from your whitelisted Live categories)</small></span>
-    <div class="btn-group"><button class="btn btn-sm btn-g" onclick="chSelFilt()">Select All Filtered</button><button class="btn btn-sm btn-g" onclick="chDesel()">Deselect All</button><button class="btn btn-sm btn-p" onclick="chSave()">Save &amp; Regenerate</button></div>
+<div class="card" style="margin-bottom:12px">
+  <div class="card-head">
+    <span>Channel Mapping <small style="color:var(--muted);font-weight:400">Map channels from your whitelisted Live categories</small></span>
+    <div class="btn-group">
+      <button class="btn btn-sm btn-g" onclick="chSelFilt()">Enable Filtered</button>
+      <button class="btn btn-sm btn-g" onclick="chDesel()">Disable All</button>
+      <button class="btn btn-sm btn-g" onclick="chAutoNum()">Auto-Number</button>
+      <button class="btn btn-sm btn-p" onclick="chSave()">Save &amp; Regenerate</button>
+    </div>
   </div>
   <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
     <input class="srch" id="chQ" placeholder="Search channels..." oninput="chRender()">
-    <select class="srch" id="chCat" onchange="chRender()" style="width:220px"><option value="">All Categories</option></select>
+    <select class="srch" id="chCat" onchange="chRender()" style="width:200px"><option value="">All Categories</option></select>
+    <select class="srch" id="chShow" onchange="chRender()" style="width:140px"><option value="">All Channels</option><option value="mapped">Mapped Only</option></select>
     <span style="font-size:11px;color:var(--muted)" id="chCnt"></span>
   </div>
-  <div class="ch-list" id="chList"><p style="padding:20px;color:var(--muted)">Click Live TV to load channels from your provider...</p></div>
+  <!-- Mapping table header -->
+  <div style="display:flex;align-items:center;gap:8px;padding:6px 12px;border-bottom:1px solid var(--border);background:var(--bg2);font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;font-weight:600">
+    <div style="width:30px">On</div>
+    <div style="width:50px">Ch #</div>
+    <div style="width:32px"></div>
+    <div style="flex:1;min-width:120px">Channel Name</div>
+    <div style="width:180px">Custom Name</div>
+    <div style="width:140px">Group</div>
+    <div style="width:60px;text-align:center">EPG</div>
+  </div>
+  <div class="ch-list" id="chList"><p style="padding:20px;color:var(--muted)">Loading channels...</p></div>
   <div id="chPag" style="padding:10px 16px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
 </div>
+<div class="card"><div class="card-head">Mapping Summary</div><div class="card-body" id="chSummary" style="font-size:12px;color:var(--muted)">Load channels to see summary.</div></div>
 </div>
 
 <!-- PLAYLISTS -->
@@ -229,60 +255,151 @@ function doStop(){api("/api/scan/stop",{method:"POST"});toast("Stop requested")}
 function doDedup(){api("/api/scan/dedup",{method:"POST"}).then(d=>toast(d.error||"Dedup running",!d.error))}
 function doJF(){api("/api/jellyfin/scan",{method:"POST"}).then(d=>toast(d.success?"Jellyfin rescan triggered":(d.error||"Failed"),d.success))}
 
-// ===== LIVE TV =====
-var chData=[],chPage=1,chLoaded=false;
+// ===== LIVE TV - Threadfin-style Channel Mapping =====
+var chData=[],chPage=1,chLoaded=false,chNextNum=1;
+
 function ldCh(){
   if(chLoaded){chRender();return}
   $("chList").innerHTML='<p style="padding:20px;color:var(--muted)">Loading channels from provider (whitelisted categories only)...</p>';
   api("/api/channels?per_page=5000").then(d=>{
     chData=d.channels||[];chLoaded=true;chPage=1;
-    var sel=$("chCat");sel.innerHTML='<option value="">All Categories ('+chData.length+')</option>';
+    // Calculate next available channel number
+    chNextNum=1;chData.forEach(c=>{if(c.ch_num&&c.ch_num>=chNextNum)chNextNum=c.ch_num+1});
+    // Populate category dropdown
+    var sel=$("chCat");sel.innerHTML='<option value="">All Categories ('+d.total_all+')</option>';
     (d.categories||[]).forEach(c=>sel.innerHTML+='<option value="'+c.id+'">'+c.name+' ('+c.count+')</option>');
-    chRender();
+    chRender();chUpdateSummary();
   }).catch(()=>{$("chList").innerHTML='<p style="padding:20px;color:var(--red)">Failed to load. Make sure you selected Live categories in the Categories tab first.</p>'});
 }
+
 function chFiltered(){
-  var q=$("chQ").value.toLowerCase(),cat=$("chCat").value;
+  var q=$("chQ").value.toLowerCase(),cat=$("chCat").value,show=$("chShow").value;
   return chData.filter(c=>{
-    if(q&&c.name.toLowerCase().indexOf(q)<0&&(c.category||"").toLowerCase().indexOf(q)<0)return false;
-    if(cat&&c.category_id!==cat)return false;return true;
+    if(q&&c.name.toLowerCase().indexOf(q)<0&&(c.category||"").toLowerCase().indexOf(q)<0
+      &&(c.custom_name||"").toLowerCase().indexOf(q)<0)return false;
+    if(cat&&c.category_id!==cat)return false;
+    if(show==="mapped"&&!c.enabled)return false;
+    return true;
   });
 }
+
 function chRender(){
-  var f=chFiltered(),pp=200,pages=Math.ceil(f.length/pp);
-  if(chPage>pages)chPage=1;
+  var f=chFiltered(),pp=150,pages=Math.ceil(f.length/pp);
+  if(chPage>pages)chPage=Math.max(1,pages);
   var start=(chPage-1)*pp,slice=f.slice(start,start+pp);
-  var en=f.filter(c=>c.enabled).length;
-  $("chCnt").textContent=en+" enabled / "+f.length+" shown / "+chData.length+" total";
-  $("chList").innerHTML=slice.length?slice.map(c=>'<div class="ch-row">'
-    +'<input type="checkbox" '+(c.enabled?"checked":"")+' onchange="chTog(\''+c.stream_id+'\',this.checked)">'
-    +(c.logo?'<img class="ch-logo" src="'+c.logo+'" onerror="this.style.display=\'none\'">':'<div class="ch-logo"></div>')
-    +'<div class="ch-name" title="'+esc(c.name)+'">'+c.name+'</div>'
-    +'<div class="ch-cat">'+c.category+'</div>'
-    +'<div class="ch-epg">'+(c.epg_id?'<span class="badge badge-g">EPG</span>':'<span class="badge badge-r">-</span>')+'</div>'
-    +'</div>').join(""):'<p style="padding:20px;color:var(--muted)">No channels match. Select Live categories in the Categories tab first.</p>';
+  var en=chData.filter(c=>c.enabled).length;
+  $("chCnt").textContent=en+" mapped / "+f.length+" shown / "+chData.length+" total";
+
+  if(!slice.length){
+    $("chList").innerHTML='<p style="padding:20px;color:var(--muted)">No channels match. Select Live categories in the Categories tab first.</p>';
+    $("chPag").innerHTML="";return;
+  }
+
+  $("chList").innerHTML=slice.map(c=>{
+    var isMapped=c.enabled;
+    return '<div class="ch-row'+(isMapped?" mapped":"")+'" data-sid="'+c.stream_id+'">'
+      // Enable checkbox
+      +'<input type="checkbox" style="width:30px" '+(c.enabled?"checked":"")+' onchange="chToggle(\''+c.stream_id+'\',this.checked)">'
+      // Channel number
+      +'<input class="ch-input num" value="'+(c.ch_num||"")+'" placeholder="#" onchange="chSetField(\''+c.stream_id+'\',\'ch_num\',parseInt(this.value)||0)">'
+      // Logo
+      +(c.logo?'<img class="ch-logo" src="'+c.logo+'" onerror="this.style.display=\'none\'">':'<div class="ch-logo"></div>')
+      // Original name
+      +'<div class="ch-orig" title="'+esc(c.name)+'">'+c.name+'<div style="font-size:10px;color:var(--muted);font-weight:400">'+c.category+'</div></div>'
+      // Custom name override
+      +'<input class="ch-input name" value="'+esc(c.custom_name||"")+'" placeholder="Custom name..." onchange="chSetField(\''+c.stream_id+'\',\'custom_name\',this.value)">'
+      // Group override
+      +'<input class="ch-input grp" value="'+esc(c.group||"")+'" placeholder="'+(c.category||"Group")+'" onchange="chSetField(\''+c.stream_id+'\',\'group\',this.value)">'
+      // EPG status
+      +'<div class="ch-epg">'+(c.epg_id?'<span class="badge badge-g" title="EPG: '+esc(c.epg_id)+'">EPG</span>':'<span class="badge badge-r" title="No EPG ID">-</span>')+'</div>'
+      +'</div>';
+  }).join("");
+
   // Pagination
   if(pages>1){var h='';
     if(chPage>1)h+='<button class="btn btn-sm btn-g" onclick="chGo('+(chPage-1)+')">Prev</button>';
-    for(var i=Math.max(1,chPage-2);i<=Math.min(pages,chPage+2);i++)h+='<button class="btn btn-sm '+(i===chPage?"btn-p":"btn-g")+'" onclick="chGo('+i+')">'+i+'</button>';
+    var ps=Math.max(1,chPage-3),pe=Math.min(pages,chPage+3);
+    for(var i=ps;i<=pe;i++)h+='<button class="btn btn-sm '+(i===chPage?"btn-p":"btn-g")+'" onclick="chGo('+i+')">'+i+'</button>';
     if(chPage<pages)h+='<button class="btn btn-sm btn-g" onclick="chGo('+(chPage+1)+')">Next</button>';
     h+='<span style="font-size:10px;color:var(--muted)">Page '+chPage+'/'+pages+'</span>';
     $("chPag").innerHTML=h;
   }else $("chPag").innerHTML="";
 }
+
 function chGo(n){chPage=n;chRender();$("chList").scrollTop=0}
-function chTog(sid,en){var c=chData.find(x=>x.stream_id===sid);if(c)c.enabled=en;
-  // Update count display without full re-render
-  var f=chFiltered(),enCnt=f.filter(c=>c.enabled).length;
-  $("chCnt").textContent=enCnt+" enabled / "+f.length+" shown / "+chData.length+" total";
+
+function chToggle(sid,en){
+  var c=chData.find(x=>x.stream_id===sid);
+  if(!c)return;
+  c.enabled=en;
+  if(en&&!c.ch_num){c.ch_num=chNextNum;chNextNum++}
+  // Inline update the row styling
+  var row=document.querySelector('[data-sid="'+sid+'"]');
+  if(row){if(en)row.classList.add("mapped");else row.classList.remove("mapped")}
+  // Send to server immediately for persistence
+  api("/api/channels/map",{method:"POST",body:JSON.stringify({stream_id:sid,enabled:en,ch_num:c.ch_num})});
+  chUpdateCount();
 }
-function chSelFilt(){chFiltered().forEach(c=>c.enabled=true);chRender()}
-function chDesel(){chData.forEach(c=>c.enabled=false);chRender()}
+
+function chSetField(sid,field,val){
+  var c=chData.find(x=>x.stream_id===sid);
+  if(c)c[field]=val;
+  var d={stream_id:sid};d[field]=val;
+  api("/api/channels/map",{method:"POST",body:JSON.stringify(d)});
+}
+
+function chUpdateCount(){
+  var en=chData.filter(c=>c.enabled).length;
+  var f=chFiltered();
+  $("chCnt").textContent=en+" mapped / "+f.length+" shown / "+chData.length+" total";
+  chUpdateSummary();
+}
+
+function chUpdateSummary(){
+  var mapped=chData.filter(c=>c.enabled);
+  if(!mapped.length){$("chSummary").textContent="No channels mapped yet. Enable channels above and click Save & Regenerate.";return}
+  var groups={};mapped.forEach(c=>{var g=c.group||c.category||"Ungrouped";groups[g]=(groups[g]||0)+1});
+  var epgCount=mapped.filter(c=>c.epg_id).length;
+  var html='<b>'+mapped.length+'</b> channels mapped, <b>'+epgCount+'</b> with EPG data<br>';
+  html+='<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">';
+  Object.entries(groups).sort((a,b)=>b[1]-a[1]).forEach(([g,n])=>{
+    html+='<span class="badge badge-b" style="font-size:11px">'+g+' ('+n+')</span>';
+  });
+  html+='</div>';
+  $("chSummary").innerHTML=html;
+}
+
+function chSelFilt(){
+  var filtered=chFiltered();
+  var ids=filtered.map(c=>c.stream_id);
+  filtered.forEach(c=>{
+    if(!c.enabled){c.enabled=true;if(!c.ch_num){c.ch_num=chNextNum;chNextNum++}}
+  });
+  api("/api/channels/bulk",{method:"POST",body:JSON.stringify({action:"enable",stream_ids:ids})});
+  chRender();chUpdateSummary();
+}
+
+function chDesel(){
+  var ids=chData.map(c=>c.stream_id);
+  chData.forEach(c=>c.enabled=false);
+  api("/api/channels/bulk",{method:"POST",body:JSON.stringify({action:"disable",stream_ids:ids})});
+  chRender();chUpdateSummary();
+}
+
+function chAutoNum(){
+  // Renumber all enabled channels sequentially
+  var mapped=chData.filter(c=>c.enabled);
+  mapped.sort((a,b)=>(a.ch_num||9999)-(b.ch_num||9999));
+  mapped.forEach((c,i)=>c.ch_num=i+1);
+  chNextNum=mapped.length+1;
+  api("/api/channels/bulk",{method:"POST",body:JSON.stringify({action:"auto_number",stream_ids:[]})});
+  chRender();toast("Renumbered "+mapped.length+" channels");
+}
+
 function chSave(){
-  var enabled=chData.filter(c=>c.enabled).map(c=>c.stream_id);
-  toast("Saving "+enabled.length+" channels...");
-  api("/api/channels/save",{method:"POST",body:JSON.stringify({enabled:enabled})}).then(d=>{
-    toast(d.message||"Saved");
+  toast("Saving & regenerating M3U + EPG...");
+  api("/api/channels/save",{method:"POST"}).then(d=>{
+    toast(d.message||"Saved");chUpdateSummary();
   }).catch(()=>toast("Save failed",false));
 }
 
