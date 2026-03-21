@@ -158,10 +158,10 @@ schedule:
   frequency: "daily"
   scan_time: "03:30"
 
-dvr:
+tuner:
   enabled: true
-  recordings_dir: "/app/data/recordings"
-  max_concurrent: 2       # Max simultaneous recordings
+  device_name: "IPTV Scanner"
+  tuner_count: 4
 
 proxy:
   # Proxy streams live TV through this app so Threadfin gets one connection per channel
