@@ -41,6 +41,16 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
     except Exception as e:
         logger.warning(f"Proxy init: {e}")
 
+    # DVR Recorder — requires proxy
+    app.recorder = None
+    if app.proxy:
+        try:
+            from .recorder import DVRRecorder
+            app.recorder = DVRRecorder(config, app.proxy)
+            logger.info(f"DVR recorder initialized ({len(app.recorder.recordings)} saved recordings)")
+        except Exception as e:
+            logger.warning(f"DVR init: {e}")
+
     # === SCAN RUNNER (used by API + scheduler) ===
     def _do_scan():
         if app.scan_running:
@@ -471,53 +481,135 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
 
         return jsonify({"message":"Saved"})
 
+    # --- DVR Recording ---
+    @app.route("/api/dvr/recordings")
+    def api_dvr_list():
+        if not app.recorder:
+            return jsonify([])
+        return jsonify(app.recorder.get_recordings())
+
+    @app.route("/api/dvr/record", methods=["POST"])
+    def api_dvr_record():
+        if not app.recorder:
+            return jsonify({"error": "DVR not available (proxy required)"}), 400
+        d = request.json or {}
+        required = ("channel_key", "channel_name", "start_time", "end_time")
+        if not all(d.get(k) for k in required):
+            return jsonify({"error": "Missing fields: channel_key, channel_name, start_time, end_time"}), 400
+        try:
+            rec = app.recorder.schedule_recording(
+                d["channel_key"], d["channel_name"],
+                d["start_time"], d["end_time"],
+                d.get("recurring", "none")
+            )
+            return jsonify({"message": "Recording scheduled", "recording": rec.to_dict()})
+        except ValueError as e:
+            return jsonify({"error": str(e)}), 400
+
+    @app.route("/api/dvr/cancel", methods=["POST"])
+    def api_dvr_cancel():
+        if not app.recorder:
+            return jsonify({"error": "DVR not available"}), 400
+        d = request.json or {}
+        rid = d.get("id", "")
+        if app.recorder.cancel_recording(rid):
+            return jsonify({"message": "Cancelled"})
+        return jsonify({"error": "Not found"}), 404
+
+    @app.route("/api/dvr/delete", methods=["POST"])
+    def api_dvr_delete():
+        if not app.recorder:
+            return jsonify({"error": "DVR not available"}), 400
+        d = request.json or {}
+        rid = d.get("id", "")
+        if app.recorder.delete_recording(rid):
+            return jsonify({"message": "Deleted"})
+        return jsonify({"error": "Not found"}), 404
+
+    # --- EPG Guide ---
+    @app.route("/api/epg/guide")
+    def api_epg_guide():
+        """Parse epg.xml and return program listings as JSON for TV Guide."""
+        if not app.proxy:
+            return jsonify({"channels": []})
+        epg_path = app.proxy.epg_path
+        if not epg_path.exists():
+            return jsonify({"channels": [], "error": "No EPG data — run a scan first"})
+
+        # Use cached result if file hasn't changed
+        cache = getattr(app, '_epg_cache', None)
+        try:
+            mtime = epg_path.stat().st_mtime
+        except Exception:
+            return jsonify({"channels": []})
+
+        if cache and cache.get("mtime") == mtime:
+            return jsonify(cache["data"])
+
+        import xml.etree.ElementTree as ET
+
+        channels = {}  # id -> {name, logo, programs}
+        programs = []  # (channel_id, {title, start, end, desc})
+
+        try:
+            for event, elem in ET.iterparse(str(epg_path), events=("end",)):
+                if elem.tag == "channel":
+                    cid = elem.get("id", "")
+                    name_el = elem.find("display-name")
+                    icon_el = elem.find("icon")
+                    channels[cid] = {
+                        "id": cid,
+                        "name": name_el.text if name_el is not None and name_el.text else cid,
+                        "logo": icon_el.get("src", "") if icon_el is not None else "",
+                        "programs": []
+                    }
+                    elem.clear()
+                elif elem.tag == "programme":
+                    cid = elem.get("channel", "")
+                    title_el = elem.find("title")
+                    desc_el = elem.find("desc")
+                    programs.append((cid, {
+                        "title": title_el.text if title_el is not None and title_el.text else "Unknown",
+                        "start": elem.get("start", ""),
+                        "end": elem.get("stop", ""),
+                        "desc": desc_el.text if desc_el is not None and desc_el.text else "",
+                    }))
+                    elem.clear()
+        except Exception as e:
+            logger.error(f"EPG parse error: {e}")
+            return jsonify({"channels": [], "error": str(e)})
+
+        # Assign programs to channels
+        for cid, prog in programs:
+            if cid in channels:
+                channels[cid]["programs"].append(prog)
+
+        # Map channel IDs to stream keys for recording
+        channel_list = list(channels.values())
+        if app.proxy.channel_map:
+            epg_to_key = {}
+            for sk, info in app.proxy.channel_map.items():
+                tvg = info.get("tvg_id", "")
+                if tvg:
+                    epg_to_key[tvg] = sk
+            for ch in channel_list:
+                ch["stream_key"] = epg_to_key.get(ch["id"], "")
+
+        result = {"channels": channel_list}
+        app._epg_cache = {"mtime": mtime, "data": result}
+        return jsonify(result)
+
     def _restart_scheduler():
         """Stop old scheduler and start new one with current config."""
-        try:
-            if app.scheduler:
-                app.scheduler.shutdown(wait=False)
-                app.scheduler = None
-                logger.info("Old scheduler stopped")
+        from .scheduler import restart_scheduler
 
-            sched_config = config.get("schedule", {})
-            if not sched_config.get("enabled", False):
-                logger.info("Scheduler disabled")
-                return
-
-            try:
-                from apscheduler.schedulers.background import BackgroundScheduler
-            except ImportError:
-                logger.warning("APScheduler not installed")
-                return
-
-            scan_time = sched_config.get("scan_time", "03:30")
-            try:
-                hour, minute = map(int, scan_time.split(":"))
-            except ValueError:
-                hour, minute = 3, 30
-
-            scheduler = BackgroundScheduler()
-            freq = sched_config.get("frequency", "daily")
-
-            def scheduled_scan():
-                logger.info(f"=== SCHEDULED SCAN triggered ===")
-                if not app.scan_running:
-                    app.run_scan_thread()
-                else:
-                    logger.info("Scan already running, skipping")
-
-            if freq == "weekly":
-                scheduler.add_job(scheduled_scan, 'cron', day_of_week='mon', hour=hour, minute=minute, id='iptv_scan', replace_existing=True)
-            elif freq == "monthly":
-                scheduler.add_job(scheduled_scan, 'cron', day=1, hour=hour, minute=minute, id='iptv_scan', replace_existing=True)
+        def trigger():
+            if not app.scan_running:
+                app.run_scan_thread()
             else:
-                scheduler.add_job(scheduled_scan, 'cron', hour=hour, minute=minute, id='iptv_scan', replace_existing=True)
+                logger.info("Scan already running, skipping")
 
-            scheduler.start()
-            app.scheduler = scheduler
-            logger.info(f"Scheduler started: {freq} at {scan_time}")
-        except Exception as e:
-            logger.error(f"Failed to restart scheduler: {e}")
+        app.scheduler = restart_scheduler(app.scheduler, config, trigger)
 
     return app
 

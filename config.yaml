@@ -158,6 +158,11 @@ schedule:
   frequency: "daily"
   scan_time: "03:30"
 
+dvr:
+  enabled: true
+  recordings_dir: "/app/data/recordings"
+  max_concurrent: 2       # Max simultaneous recordings
+
 proxy:
   # Proxy streams live TV through this app so Threadfin gets one connection per channel
   # Point Threadfin at:  M3U → http://YOUR_IP:8888/proxy/playlist.m3u

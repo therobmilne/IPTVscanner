@@ -10,12 +10,8 @@ Usage:
 """
 
 import argparse
-import json
 import logging
-import os
 import sys
-import threading
-from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
@@ -90,61 +86,27 @@ def run_scan(config: dict) -> ScanStats:
 
 
 def start_scheduler(config, flask_app):
-    """Start APScheduler that calls the same scan function as the dashboard button."""
-    try:
-        from apscheduler.schedulers.background import BackgroundScheduler
-    except ImportError:
-        logging.warning("APScheduler not installed — pip install apscheduler")
-        return None
+    """Start scan scheduler using shared scheduler module."""
+    from app.scheduler import create_scheduler
 
-    sched_config = config.get("schedule", {})
-    if not sched_config.get("enabled", False):
-        logging.info("Scheduled scanning disabled")
-        return None
-
-    scan_time = sched_config.get("scan_time", "03:30")
-    try:
-        hour, minute = map(int, scan_time.split(":"))
-    except ValueError:
-        hour, minute = 3, 30
-
-    scheduler = BackgroundScheduler()
-
-    def scheduled_scan():
-        """Triggered by scheduler — uses the same scan path as dashboard button."""
-        logging.info(f"=== SCHEDULED SCAN at {datetime.now().strftime('%H:%M:%S')} ===")
-        if flask_app.scan_running:
+    def trigger():
+        if not flask_app.scan_running:
+            flask_app.run_scan_thread()
+        else:
             logging.info("Scan already running, skipping scheduled scan")
-            return
-        flask_app.run_scan_thread()
 
-    freq = sched_config.get("frequency", "daily")
-    if freq == "weekly":
-        scheduler.add_job(scheduled_scan, 'cron', day_of_week='mon', hour=hour, minute=minute, id='iptv_scan', replace_existing=True)
-    elif freq == "monthly":
-        scheduler.add_job(scheduled_scan, 'cron', day=1, hour=hour, minute=minute, id='iptv_scan', replace_existing=True)
-    elif freq == "interval":
-        # Scan every N hours for "auto-collect" mode
-        interval_hours = sched_config.get("interval_hours", 6)
-        scheduler.add_job(scheduled_scan, 'interval', hours=interval_hours, id='iptv_scan', replace_existing=True)
-    else:
-        scheduler.add_job(scheduled_scan, 'cron', hour=hour, minute=minute, id='iptv_scan', replace_existing=True)
-
-    scheduler.start()
-    logging.info(f"Scheduler: {freq} at {scan_time}")
-    return scheduler
+    return create_scheduler(config, trigger)
 
 
 def main():
     parser = argparse.ArgumentParser(description="IPTV Stream Manager")
     parser.add_argument("command", nargs="?", default="dashboard",
-                        choices=["start", "scan", "enrich", "collections", "dashboard", "test", "proxy"])
+                        choices=["start", "scan", "enrich", "collections", "dashboard", "test"])
     parser.add_argument("--config", default="config.yaml")
     parser.add_argument("--movies", action="store_true")
     parser.add_argument("--series", action="store_true")
     parser.add_argument("--live", action="store_true")
     parser.add_argument("--port", type=int)
-    parser.add_argument("--proxy-port", type=int, default=8889)
 
     args = parser.parse_args()
     config = load_config(args.config)
@@ -166,17 +128,6 @@ def main():
 
     if args.command == "collections":
         sc = IPTVScanner(config); TMDBEnricher(config).build_collections(sc.state)
-        return
-
-    if args.command == "proxy":
-        from app.restream_proxy import create_proxy_app
-        config.setdefault("proxy", {})["port"] = args.proxy_port
-        proxy_app, proxy = create_proxy_app(config)
-        logger.info(f"Restream Proxy at http://0.0.0.0:{args.proxy_port}")
-        try:
-            proxy_app.run(host="0.0.0.0", port=args.proxy_port, debug=False, threaded=True)
-        except KeyboardInterrupt:
-            pass
         return
 
     # ---- Dashboard + Scheduler (default) ----
