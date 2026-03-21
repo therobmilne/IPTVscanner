@@ -1,7 +1,7 @@
 """
 IPTV Stream Manager - Web Dashboard
 Unified IPTV management: replaces Threadfin + TVHeadend.
-Includes HDHomeRun emulator, live TV channel management, VOD browsing, restream proxy.
+Includes HDHomeRun emulator, live TV channel management, playlists, restream proxy.
 """
 import json, logging, os, re, threading, time
 from datetime import datetime, timezone
@@ -26,19 +26,28 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
     app.last_enrich = {"enriched": 0, "failed": 0, "skipped": 0}
     app.scheduler = None
 
-    # Channel enable/disable state (persisted to enabled_channels.json)
+    # Channel enable/disable state
     enabled_channels_file = data_dir / "enabled_channels.json"
-    app.enabled_channels = _load_json(enabled_channels_file, {})  # stream_id -> True
+    app.enabled_channels = _load_json(enabled_channels_file, {})
 
-    # Proxy — always initialize if possible
+    # Playlists state
+    playlists_file = data_dir / "playlists.json"
+    app.playlists = _load_json(playlists_file, [])
+    playlists_dir = Path(config["paths"].get("movies", "/media/strm/movies")).parent / "playlists"
+    playlists_dir.mkdir(parents=True, exist_ok=True)
+    app.playlists_dir = playlists_dir
+
+    # Cached channel list (avoid re-fetching from provider on every page load)
+    app._channels_cache = None  # {"ts": timestamp, "data": [...], "categories": [...]}
+
+    # Proxy
     app.proxy = None
     app.proxy_running = False
     try:
         from .restream_proxy import RestreamProxy
         app.proxy = RestreamProxy(config)
         app.proxy.load_channels()
-        auto_start = config.get("proxy", {}).get("auto_start", True)
-        if auto_start:
+        if config.get("proxy", {}).get("auto_start", True):
             app.proxy_running = True
             logger.info(f"Proxy auto-started with {len(app.proxy.channel_map)} channels")
     except ImportError:
@@ -46,7 +55,7 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
     except Exception as e:
         logger.warning(f"Proxy init: {e}")
 
-    # Tuner config for HDHomeRun emulation
+    # Tuner config
     tuner_config = config.get("tuner", {})
     app.tuner_enabled = tuner_config.get("enabled", True)
     app.tuner_count = tuner_config.get("tuner_count", 4)
@@ -55,7 +64,6 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
     # === SCAN RUNNER ===
     def _do_scan():
         if app.scan_running:
-            logger.warning("Scan already running")
             return
         app.scan_running = True
         try:
@@ -67,7 +75,6 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
                 "series": sweep.get("series", 0),
                 "total": stats.dupes_skipped + stats.dupes_replaced + stats.dupes_sweep
             }
-            # TMDB enrichment
             if not scanner.stop_requested and enricher and enricher.enabled:
                 try:
                     scanner.progress.update({"step": "enriching", "step_number": 4,
@@ -80,22 +87,21 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
                     enricher.build_collections(scanner.state)
                     scanner.progress.update({"percent": 100, "details": "TMDB done"})
                 except Exception as e:
-                    logger.error(f"TMDB error (non-fatal): {e}")
+                    logger.error(f"TMDB error: {e}")
                     app.last_enrich = {"enriched": 0, "failed": 0, "skipped": 0, "error": str(e)}
-            # Jellyfin rescan
             if not scanner.stop_requested and jellyfin and jellyfin.auto_rescan and getattr(jellyfin, 'auth_enabled', False):
                 try:
                     scanner.progress.update({"step_label": "Triggering Jellyfin rescan...", "details": ""})
                     jellyfin.trigger_library_scan()
                 except Exception as e:
                     logger.error(f"Jellyfin rescan error: {e}")
-            # Reload proxy
             if app.proxy:
                 try:
                     app.proxy.load_channels()
-                    logger.info(f"Proxy reloaded: {len(app.proxy.channel_map)} channels")
                 except Exception as e:
                     logger.error(f"Proxy reload failed: {e}")
+            # Invalidate channel cache after scan
+            app._channels_cache = None
         except Exception as e:
             logger.exception(f"Scan failed: {e}")
         finally:
@@ -115,7 +121,6 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
     def index():
         return render_template("dashboard.html")
 
-    # --- Status ---
     @app.route("/api/status")
     def api_status():
         lib = scanner.get_library_stats() if scanner else {}
@@ -145,10 +150,9 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
             "jellyfin": jf_status, "tmdb_enabled": enricher.enabled if enricher else False,
             "proxy": px, "dedup_stats": app.last_dedup, "enrich_stats": app.last_enrich,
             "tuner": {"enabled": app.tuner_enabled, "device_name": app.device_name, "tuner_count": app.tuner_count},
-            "enabled_channels": enabled_count,
+            "enabled_channels": enabled_count, "playlist_count": len(app.playlists),
         })
 
-    # --- Scan ---
     @app.route("/api/scan", methods=["POST"])
     def api_scan():
         if app.scan_running:
@@ -187,7 +191,7 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
         threading.Thread(target=_do_dedup, daemon=True).start()
         return jsonify({"message": "Dedup started"})
 
-    # --- Library ---
+    # --- Library (used by playlists) ---
     @app.route("/api/library")
     def api_library():
         platform = request.args.get("platform", "")
@@ -316,17 +320,10 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
 
     @app.route("/api/proxy/info")
     def api_px_info():
-        host = request.host
-        scheme = request.scheme
-        base = f"{scheme}://{host}"
+        host = request.host; scheme = request.scheme; base = f"{scheme}://{host}"
         epg_ready = bool(app.proxy and app.proxy.epg_path.exists()) if app.proxy else False
-        return jsonify({
-            "m3u_url": f"{base}/proxy/playlist.m3u",
-            "epg_url": f"{base}/proxy/epg.xml",
-            "channels": len(app.proxy.channel_map) if app.proxy else 0,
-            "epg_ready": epg_ready,
-            "proxy_running": app.proxy_running,
-        })
+        return jsonify({"m3u_url": f"{base}/proxy/playlist.m3u", "epg_url": f"{base}/proxy/epg.xml",
+            "channels": len(app.proxy.channel_map) if app.proxy else 0, "epg_ready": epg_ready, "proxy_running": app.proxy_running})
 
     @app.route("/proxy/playlist.m3u")
     @app.route("/proxy/playlist")
@@ -356,16 +353,14 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
                 active = app.proxy.get_or_create_stream(sk)
                 q = active.add_client(cid)
                 while True:
-                    try:
-                        chunk = q.get(timeout=60)
+                    try: chunk = q.get(timeout=60)
                     except _queue.Empty:
                         if active.running: continue
                         break
                     if chunk is None: break
                     yield chunk
             except GeneratorExit: pass
-            except Exception as e:
-                logger.error(f"Proxy stream error {sk}/{cid}: {e}")
+            except Exception as e: logger.error(f"Proxy stream error {sk}/{cid}: {e}")
             finally:
                 if active: active.remove_client(cid)
         return Response(gen(), mimetype="video/mp2t",
@@ -396,7 +391,8 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
             elif ct=="live": cats=scanner.client.get_live_categories(); sel=set(str(c) for c in config.get("filters",{}).get("live_category_ids",[]))
             else: return jsonify({"error":"Bad type"}),400
             cat_tags = config.get("filters", {}).get("category_tags", {})
-            r = [{"id":str(c.get("category_id","") or ""),"name":c.get("category_name",""),"selected":str(c.get("category_id","") or "") in sel,"tags":cat_tags.get(str(c.get("category_id","") or ""),[]) } for c in cats]
+            r = [{"id":str(c.get("category_id","") or ""),"name":c.get("category_name",""),"selected":str(c.get("category_id","") or "") in sel,
+                  "tags":cat_tags.get(str(c.get("category_id","") or ""),[]) } for c in cats]
             r.sort(key=lambda x:x["name"])
             return jsonify(r)
         except Exception as e: return jsonify({"error":str(e)}),500
@@ -416,6 +412,8 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
             scanner.vod_cat_ids = set(str(x) for x in config.get("filters",{}).get("vod_category_ids",[]))
             scanner.series_cat_ids = set(str(x) for x in config.get("filters",{}).get("series_category_ids",[]))
             scanner.live_cat_ids = set(str(x) for x in config.get("filters",{}).get("live_category_ids",[]))
+        # Invalidate channel cache since live categories may have changed
+        app._channels_cache = None
         return jsonify({"message":"Saved"})
 
     # --- Settings ---
@@ -430,8 +428,7 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
             "scan_time":config.get("schedule",{}).get("scan_time","03:30"),
             "scan_frequency":config.get("schedule",{}).get("frequency","daily"),
             "scan_enabled":config.get("schedule",{}).get("enabled",False),
-            "tuner_enabled":app.tuner_enabled, "tuner_count":app.tuner_count,
-            "device_name":app.device_name})
+            "tuner_enabled":app.tuner_enabled,"tuner_count":app.tuner_count,"device_name":app.device_name})
 
     @app.route("/api/settings", methods=["POST"])
     def api_settings_save():
@@ -441,17 +438,9 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
              "scan_frequency":("schedule","frequency"),"scan_enabled":("schedule","enabled")}
         for k,(sec,fld) in m.items():
             if k in d: config.setdefault(sec,{})[fld] = d[k]
-        # Tuner settings
-        if "tuner_enabled" in d:
-            config.setdefault("tuner",{})["enabled"] = d["tuner_enabled"]
-            app.tuner_enabled = d["tuner_enabled"]
-        if "tuner_count" in d:
-            config.setdefault("tuner",{})["tuner_count"] = int(d["tuner_count"])
-            app.tuner_count = int(d["tuner_count"])
-        if "device_name" in d:
-            config.setdefault("tuner",{})["device_name"] = d["device_name"]
-            app.device_name = d["device_name"]
-        # Update live objects
+        if "tuner_enabled" in d: config.setdefault("tuner",{})["enabled"]=d["tuner_enabled"]; app.tuner_enabled=d["tuner_enabled"]
+        if "tuner_count" in d: config.setdefault("tuner",{})["tuner_count"]=int(d["tuner_count"]); app.tuner_count=int(d["tuner_count"])
+        if "device_name" in d: config.setdefault("tuner",{})["device_name"]=d["device_name"]; app.device_name=d["device_name"]
         if enricher and "tmdb_api_key" in d:
             enricher.api_key = d["tmdb_api_key"]; enricher.enabled = bool(d["tmdb_api_key"])
         if jellyfin:
@@ -465,70 +454,111 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
         return jsonify({"message":"Saved"})
 
     # =====================================================================
-    #  LIVE TV CHANNEL MANAGEMENT (replaces Threadfin)
+    #  LIVE TV CHANNEL MANAGEMENT
+    #  Only loads channels from whitelisted live categories.
+    #  Caches result for 5 min to avoid hammering the provider API.
     # =====================================================================
 
-    @app.route("/api/channels")
-    def api_channels():
-        """Get all live channels from provider with enabled status, grouped by category."""
+    def _get_live_channels():
+        """Fetch live channels from whitelisted categories only. Cached 5 min."""
+        cache = app._channels_cache
+        if cache and (time.time() - cache["ts"]) < 300:
+            return cache["data"], cache["categories"]
+
+        live_cat_ids = scanner.live_cat_ids if scanner else set()
         try:
             cats = scanner.client.get_live_categories()
             cat_map = {str(c.get("category_id","") or ""): c.get("category_name","") for c in cats}
-            all_ch = scanner.client.get_live_streams()
+            # Only fetch channels from whitelisted categories
+            all_ch = []
+            if live_cat_ids:
+                for cat_id in live_cat_ids:
+                    try:
+                        ch_list = scanner.client.get_live_streams(cat_id)
+                        for ch in ch_list:
+                            ch["_cat_name"] = cat_map.get(str(ch.get("category_id","") or ""), "")
+                        all_ch.extend(ch_list)
+                    except Exception:
+                        pass
+            else:
+                all_ch = scanner.client.get_live_streams()
+                for ch in all_ch:
+                    ch["_cat_name"] = cat_map.get(str(ch.get("category_id","") or ""), "")
         except Exception as e:
-            return jsonify({"error": str(e), "channels": []}), 500
+            logger.error(f"Failed to fetch channels: {e}")
+            return [], []
 
-        q = request.args.get("search", "").lower()
-        cat_filter = request.args.get("category", "")
         result = []
         for ch in all_ch:
             sid = str(ch.get("stream_id", ""))
-            name = ch.get("name", "")
-            cat_id = str(ch.get("category_id", "") or "")
-            cat_name = cat_map.get(cat_id, "")
-            if q and q not in name.lower() and q not in cat_name.lower():
-                continue
-            if cat_filter and cat_id != cat_filter:
-                continue
             result.append({
-                "stream_id": sid, "name": name,
+                "stream_id": sid, "name": ch.get("name", ""),
                 "logo": ch.get("stream_icon", ""),
-                "category_id": cat_id, "category": cat_name,
+                "category_id": str(ch.get("category_id", "") or ""),
+                "category": ch.get("_cat_name", ""),
                 "epg_id": ch.get("epg_channel_id", ""),
                 "enabled": app.enabled_channels.get(sid, False),
             })
         result.sort(key=lambda x: (x["category"], x["name"]))
-        # Category list for filter dropdown
         categories = sorted(set(c["category"] for c in result if c["category"]))
-        return jsonify({"channels": result, "categories": categories, "total": len(result),
-            "enabled_count": sum(1 for c in result if c["enabled"])})
+
+        app._channels_cache = {"ts": time.time(), "data": result, "categories": categories}
+        return result, categories
+
+    @app.route("/api/channels")
+    def api_channels():
+        """Get live channels (whitelisted categories only), paginated."""
+        channels, categories = _get_live_channels()
+
+        q = request.args.get("search", "").lower()
+        cat_filter = request.args.get("category", "")
+        pg = int(request.args.get("page", 1))
+        pp = int(request.args.get("per_page", 200))
+
+        # Re-sync enabled state from app state
+        for ch in channels:
+            ch["enabled"] = app.enabled_channels.get(ch["stream_id"], False)
+
+        filtered = channels
+        if q:
+            filtered = [c for c in filtered if q in c["name"].lower() or q in c["category"].lower()]
+        if cat_filter:
+            filtered = [c for c in filtered if c["category_id"] == cat_filter]
+
+        total = len(filtered)
+        enabled_count = sum(1 for c in filtered if c["enabled"])
+        start = (pg - 1) * pp
+        page_items = filtered[start:start + pp]
+
+        # Build category options with counts
+        cat_options = []
+        for cat in categories:
+            cnt = sum(1 for c in channels if c["category"] == cat)
+            cat_id = next((c["category_id"] for c in channels if c["category"] == cat), "")
+            cat_options.append({"id": cat_id, "name": cat, "count": cnt})
+
+        return jsonify({"channels": page_items, "categories": cat_options,
+            "total": total, "enabled_count": enabled_count,
+            "page": pg, "pages": max(1, -(-total // pp))})
 
     @app.route("/api/channels/save", methods=["POST"])
     def api_channels_save():
         """Save enabled channels and regenerate M3U + EPG + restart proxy."""
         d = request.json or {}
         enabled_ids = d.get("enabled", [])
-        # Update state
         app.enabled_channels = {str(sid): True for sid in enabled_ids}
         _save_json(enabled_channels_file, app.enabled_channels)
-
-        # Regenerate filtered M3U from enabled channels
         count = _regenerate_m3u(scanner, config, app.enabled_channels)
-
-        # Reload proxy with new M3U
         if app.proxy:
             app.proxy.load_channels()
-            logger.info(f"Proxy reloaded with {len(app.proxy.channel_map)} channels")
-
+        app._channels_cache = None  # force re-sync enabled state
         return jsonify({"message": f"Saved {count} channels", "count": count})
 
     @app.route("/api/channels/toggle", methods=["POST"])
     def api_channels_toggle():
-        """Toggle a single channel on/off."""
         d = request.json or {}
         sid = str(d.get("stream_id", ""))
-        enabled = d.get("enabled", True)
-        if enabled:
+        if d.get("enabled", True):
             app.enabled_channels[sid] = True
         else:
             app.enabled_channels.pop(sid, None)
@@ -536,31 +566,91 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
         return jsonify({"message": "Toggled"})
 
     # =====================================================================
-    #  HDHomeRun EMULATOR (for Jellyfin Live TV)
+    #  PLAYLISTS (replaces VOD Library)
+    #  Creates M3U playlists from scanned content organized by platform/tags.
+    #  Jellyfin can read these as playlist libraries.
+    # =====================================================================
+
+    @app.route("/api/playlists")
+    def api_playlists():
+        """Get all playlists with item counts."""
+        result = []
+        for pl in app.playlists:
+            count = _count_playlist_items(pl, scanner.state)
+            result.append({**pl, "item_count": count})
+        return jsonify(result)
+
+    @app.route("/api/playlists/create", methods=["POST"])
+    def api_playlists_create():
+        """Create a new playlist from filter criteria."""
+        d = request.json or {}
+        name = d.get("name", "").strip()
+        if not name:
+            return jsonify({"error": "Name required"}), 400
+        pl = {
+            "id": str(int(time.time() * 1000))[-8:],
+            "name": name,
+            "type": d.get("type", "movies"),      # movies or series
+            "platform": d.get("platform", ""),      # e.g. "Netflix"
+            "tags": d.get("tags", []),              # additional tag filters
+            "quality_min": d.get("quality_min", 0), # min quality (0=any)
+            "search": d.get("search", ""),           # text filter
+            "created": datetime.now(timezone.utc).isoformat(),
+        }
+        app.playlists.append(pl)
+        _save_json(playlists_file, app.playlists)
+        # Generate the M3U file
+        count = _generate_playlist_file(pl, scanner.state, app.playlists_dir, config)
+        return jsonify({"message": f"Created playlist '{name}' with {count} items", "playlist": pl})
+
+    @app.route("/api/playlists/delete", methods=["POST"])
+    def api_playlists_delete():
+        d = request.json or {}
+        pid = d.get("id", "")
+        app.playlists = [p for p in app.playlists if p["id"] != pid]
+        _save_json(playlists_file, app.playlists)
+        # Delete the M3U file
+        for f in app.playlists_dir.glob(f"{pid}_*.m3u"):
+            f.unlink(missing_ok=True)
+        return jsonify({"message": "Deleted"})
+
+    @app.route("/api/playlists/regenerate", methods=["POST"])
+    def api_playlists_regen():
+        """Regenerate all playlist M3U files (e.g. after a scan)."""
+        total = 0
+        for pl in app.playlists:
+            total += _generate_playlist_file(pl, scanner.state, app.playlists_dir, config)
+        return jsonify({"message": f"Regenerated {len(app.playlists)} playlists ({total} total items)"})
+
+    @app.route("/api/playlists/preview", methods=["POST"])
+    def api_playlists_preview():
+        """Preview items that would be in a playlist without saving."""
+        d = request.json or {}
+        pl = {"type": d.get("type","movies"), "platform": d.get("platform",""),
+              "tags": d.get("tags",[]), "quality_min": d.get("quality_min",0), "search": d.get("search","")}
+        items = _get_playlist_items(pl, scanner.state)
+        # Return first 50 for preview
+        preview = [{"title": i.get("title",""), "year": i.get("year",""), "platform": i.get("platform",""),
+                     "quality": i.get("quality",720), "cover": i.get("poster_url") or i.get("stream_icon","") or i.get("cover","")}
+                    for i in items[:50]]
+        return jsonify({"total": len(items), "preview": preview})
+
+    # =====================================================================
+    #  HDHomeRun EMULATOR
     # =====================================================================
 
     @app.route("/discover.json")
     def hdhr_discover():
-        """HDHomeRun device discovery."""
         if not app.tuner_enabled:
             return Response("Tuner disabled", status=503)
         base = f"{request.scheme}://{request.host}"
-        return jsonify({
-            "FriendlyName": app.device_name,
-            "Manufacturer": "IPTV Scanner",
-            "ModelNumber": "HDTC-2US",
-            "FirmwareName": "hdhomerun_atsc",
-            "FirmwareVersion": "20230501",
-            "DeviceID": "1234ABCD",
-            "DeviceAuth": "iptvscan",
-            "BaseURL": base,
-            "LineupURL": f"{base}/lineup.json",
-            "TunerCount": app.tuner_count,
-        })
+        return jsonify({"FriendlyName": app.device_name, "Manufacturer": "IPTV Scanner",
+            "ModelNumber": "HDTC-2US", "FirmwareName": "hdhomerun_atsc", "FirmwareVersion": "20230501",
+            "DeviceID": "1234ABCD", "DeviceAuth": "iptvscan", "BaseURL": base,
+            "LineupURL": f"{base}/lineup.json", "TunerCount": app.tuner_count})
 
     @app.route("/device.xml")
     def hdhr_device_xml():
-        """HDHomeRun device descriptor (UPnP)."""
         if not app.tuner_enabled:
             return Response("Tuner disabled", status=503)
         base = f"{request.scheme}://{request.host}"
@@ -582,97 +672,24 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
 
     @app.route("/lineup_status.json")
     def hdhr_lineup_status():
-        """HDHomeRun lineup status."""
-        return jsonify({
-            "ScanInProgress": 0, "ScanPossible": 1,
-            "Source": "Cable", "SourceList": ["Cable"],
-        })
+        return jsonify({"ScanInProgress": 0, "ScanPossible": 1, "Source": "Cable", "SourceList": ["Cable"]})
 
     @app.route("/lineup.json")
     def hdhr_lineup():
-        """HDHomeRun channel lineup — only enabled channels."""
         if not app.proxy:
             return jsonify([])
         base = f"{request.scheme}://{request.host}"
         lineup = []
         guide_num = 1
         for sk, info in app.proxy.channel_map.items():
-            sid = sk  # stream key is typically the stream_id
-            if not app.enabled_channels.get(sid, False):
+            if not app.enabled_channels.get(sk, False):
                 continue
-            lineup.append({
-                "GuideNumber": str(guide_num),
-                "GuideName": info.get("name", sk),
-                "URL": f"{base}/proxy/stream/{sk}.ts",
-            })
+            lineup.append({"GuideNumber": str(guide_num), "GuideName": info.get("name", sk),
+                "URL": f"{base}/proxy/stream/{sk}.ts"})
             guide_num += 1
         return jsonify(lineup)
 
-    # =====================================================================
-    #  EPG GUIDE
-    # =====================================================================
-
-    @app.route("/api/epg/guide")
-    def api_epg_guide():
-        """Parse epg.xml and return TV guide as JSON."""
-        if not app.proxy:
-            return jsonify({"channels": []})
-        epg_path = app.proxy.epg_path
-        if not epg_path.exists():
-            return jsonify({"channels": [], "error": "No EPG data — run a scan first"})
-
-        cache = getattr(app, '_epg_cache', None)
-        try:
-            mtime = epg_path.stat().st_mtime
-        except Exception:
-            return jsonify({"channels": []})
-        if cache and cache.get("mtime") == mtime:
-            return jsonify(cache["data"])
-
-        import xml.etree.ElementTree as ET
-        channels = {}
-        programs = []
-        try:
-            for event, elem in ET.iterparse(str(epg_path), events=("end",)):
-                if elem.tag == "channel":
-                    cid = elem.get("id", "")
-                    name_el = elem.find("display-name")
-                    icon_el = elem.find("icon")
-                    channels[cid] = {"id": cid,
-                        "name": name_el.text if name_el is not None and name_el.text else cid,
-                        "logo": icon_el.get("src", "") if icon_el is not None else "",
-                        "programs": []}
-                    elem.clear()
-                elif elem.tag == "programme":
-                    cid = elem.get("channel", "")
-                    title_el = elem.find("title")
-                    desc_el = elem.find("desc")
-                    programs.append((cid, {"title": title_el.text if title_el is not None and title_el.text else "Unknown",
-                        "start": elem.get("start", ""), "end": elem.get("stop", ""),
-                        "desc": desc_el.text if desc_el is not None and desc_el.text else ""}))
-                    elem.clear()
-        except Exception as e:
-            logger.error(f"EPG parse error: {e}")
-            return jsonify({"channels": [], "error": str(e)})
-
-        for cid, prog in programs:
-            if cid in channels:
-                channels[cid]["programs"].append(prog)
-
-        channel_list = list(channels.values())
-        if app.proxy.channel_map:
-            epg_to_key = {}
-            for sk, info in app.proxy.channel_map.items():
-                tvg = info.get("tvg_id", "")
-                if tvg: epg_to_key[tvg] = sk
-            for ch in channel_list:
-                ch["stream_key"] = epg_to_key.get(ch["id"], "")
-
-        result = {"channels": channel_list}
-        app._epg_cache = {"mtime": mtime, "data": result}
-        return jsonify(result)
-
-    # --- Remaining routes ---
+    # --- Remaining ---
     @app.route("/api/movies")
     def api_movies():
         pg,pp = int(request.args.get("page",1)),int(request.args.get("per_page",50))
@@ -694,10 +711,8 @@ def create_app(config: dict, scanner=None, enricher=None, jellyfin=None):
     def _restart_scheduler():
         from .scheduler import restart_scheduler
         def trigger():
-            if not app.scan_running:
-                app.run_scan_thread()
-            else:
-                logger.info("Scan already running, skipping")
+            if not app.scan_running: app.run_scan_thread()
+            else: logger.info("Scan already running, skipping")
         app.scheduler = restart_scheduler(app.scheduler, config, trigger)
 
     return app
@@ -726,22 +741,19 @@ def _regenerate_m3u(scanner, config, enabled_channels):
     live_dir = Path(config["paths"]["live_tv"])
     live_dir.mkdir(parents=True, exist_ok=True)
     m3u_path = live_dir / "iptv_channels.m3u"
-
     try:
         cats = scanner.client.get_live_categories()
         cat_map = {str(c.get("category_id","") or ""): c.get("category_name","") for c in cats}
         all_ch = scanner.client.get_live_streams()
     except Exception as e:
-        logger.error(f"Failed to fetch channels for M3U: {e}")
+        logger.error(f"Failed to fetch channels: {e}")
         return 0
-
     count = 0
     with open(m3u_path, "w", encoding="utf-8") as f:
         f.write('#EXTM3U\n')
         for ch in all_ch:
             sid = str(ch.get("stream_id", ""))
-            if sid not in enabled_channels:
-                continue
+            if sid not in enabled_channels: continue
             name = ch.get("name", "Unknown")
             logo = ch.get("stream_icon", "")
             cat_id = str(ch.get("category_id", "") or "")
@@ -750,10 +762,8 @@ def _regenerate_m3u(scanner, config, enabled_channels):
             f.write(f'#EXTINF:-1 tvg-id="{epg_id}" tvg-name="{name}" tvg-logo="{logo}" group-title="{group}",{name}\n')
             f.write(scanner.client.build_live_url(int(sid)) + '\n')
             count += 1
-
-    logger.info(f"Regenerated M3U with {count} enabled channels")
-
-    # Also regenerate filtered EPG
+    logger.info(f"Regenerated M3U with {count} channels")
+    # Regenerate EPG
     if count > 0:
         wanted_ids = set()
         for ch in all_ch:
@@ -764,19 +774,73 @@ def _regenerate_m3u(scanner, config, enabled_channels):
         if wanted_ids:
             try:
                 from .scanner import IPTVScanner
-                epg_url = scanner.client.get_epg_url()
                 raw_path = live_dir / "epg_raw.xml"
                 epg_path = live_dir / "epg.xml"
-                resp = scanner.client.session.get(epg_url, timeout=120, stream=True)
+                resp = scanner.client.session.get(scanner.client.get_epg_url(), timeout=120, stream=True)
                 resp.raise_for_status()
                 with open(raw_path, "wb") as f:
-                    for chunk in resp.iter_content(chunk_size=65536):
-                        f.write(chunk)
+                    for chunk in resp.iter_content(chunk_size=65536): f.write(chunk)
                 IPTVScanner._filter_epg(raw_path, epg_path, wanted_ids)
                 try: raw_path.unlink()
                 except: pass
-                logger.info(f"EPG regenerated for {len(wanted_ids)} channels")
             except Exception as e:
-                logger.error(f"EPG regeneration failed: {e}")
-
+                logger.error(f"EPG regen failed: {e}")
     return count
+
+def _get_playlist_items(pl, state):
+    """Get items matching a playlist's filter criteria."""
+    ctype = pl.get("type", "movies")
+    platform = pl.get("platform", "")
+    tags = pl.get("tags", [])
+    quality_min = pl.get("quality_min", 0)
+    search = pl.get("search", "").lower()
+    items = []
+    for sid, info in state.get(ctype, {}).items():
+        if platform and info.get("platform", "") != platform:
+            continue
+        if quality_min and info.get("quality", 720) < quality_min:
+            continue
+        if search:
+            t = (info.get("title", "") or info.get("name", "")).lower()
+            if search not in t:
+                continue
+        if tags:
+            item_tags = info.get("tags", [])
+            if not any(t in item_tags for t in tags):
+                continue
+        items.append(info)
+    items.sort(key=lambda x: x.get("title", "").lower())
+    return items
+
+def _count_playlist_items(pl, state):
+    return len(_get_playlist_items(pl, state))
+
+def _generate_playlist_file(pl, state, playlists_dir, config):
+    """Generate an M3U playlist file for Jellyfin."""
+    items = _get_playlist_items(pl, state)
+    safe_name = re.sub(r'[^a-zA-Z0-9_\- ]', '', pl.get("name", "playlist")).strip()
+    filename = f"{pl['id']}_{safe_name}.m3u"
+    filepath = playlists_dir / filename
+
+    with open(filepath, "w", encoding="utf-8") as f:
+        f.write(f'#EXTM3U\n')
+        f.write(f'#PLAYLIST:{pl.get("name", "Playlist")}\n')
+        ctype = pl.get("type", "movies")
+        for info in items:
+            title = info.get("title", "") or info.get("name", "Unknown")
+            year = info.get("year", "")
+            label = f"{title} ({year})" if year else title
+            # Point to the .strm file path
+            strm = info.get("strm_path", "")
+            if strm:
+                f.write(f'#EXTINF:-1,{label}\n')
+                f.write(f'{strm}\n')
+            else:
+                # Fallback to stream URL
+                url = info.get("stream_url", "")
+                if url:
+                    f.write(f'#EXTINF:-1,{label}\n')
+                    f.write(f'{url}\n')
+
+    logger.info(f"Playlist '{pl.get('name','')}': {len(items)} items -> {filepath}")
+    return len(items)

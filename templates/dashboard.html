@@ -7,230 +7,177 @@
 <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 <style>
 :root{--bg:#161b22;--bg2:#0d1117;--bg3:#21262d;--border:#30363d;--accent:#58a6ff;--green:#3fb950;--red:#f85149;--orange:#d29922;--yellow:#e3b341;--purple:#bc8cff;--text:#c9d1d9;--muted:#8b949e}
-*{box-sizing:border-box}body{background:var(--bg2);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;margin:0}
+*{box-sizing:border-box}body{background:var(--bg2);color:var(--text);font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Helvetica,Arial,sans-serif;margin:0;font-size:13px}
 .sidebar{width:200px;background:var(--bg);border-right:1px solid var(--border);position:fixed;height:100vh;z-index:10;display:flex;flex-direction:column;overflow-y:auto}
-.sidebar .logo{padding:16px;font-weight:700;font-size:15px;color:#fff;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px}
+.sidebar .logo{padding:16px;font-weight:700;font-size:15px;color:#fff;border-bottom:1px solid var(--border)}
 .sidebar .logo span{color:var(--accent)}
 .nav-item{display:flex;align-items:center;gap:8px;padding:8px 16px;color:var(--muted);font-size:13px;cursor:pointer;border-left:3px solid transparent;transition:all .1s}
 .nav-item:hover{color:var(--text);background:rgba(88,166,255,.04)}
 .nav-item.active{color:#fff;background:rgba(88,166,255,.08);border-left-color:var(--accent)}
 .main{margin-left:200px;min-height:100vh}
-.topbar{background:var(--bg);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5}
+.topbar{background:var(--bg);border-bottom:1px solid var(--border);padding:10px 24px;display:flex;justify-content:space-between;align-items:center;position:sticky;top:0;z-index:5;flex-wrap:wrap;gap:8px}
 .topbar h1{font-size:16px;font-weight:600;color:#fff}
 .content{padding:20px 24px}
 .page{display:none}.page.active{display:block}
-/* Cards */
 .card{background:var(--bg);border:1px solid var(--border);border-radius:6px;overflow:hidden}
-.card-head{padding:12px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+.card-head{padding:12px 16px;border-bottom:1px solid var(--border);font-weight:600;font-size:13px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px}
 .card-body{padding:16px}
-.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:16px}
+.stat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:12px;margin-bottom:16px}
 .stat{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:14px 16px}
-.stat .label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
-.stat .val{font-size:22px;font-weight:700}
-.stat .sub{font-size:11px;color:var(--muted);margin-top:2px}
-/* Buttons */
-.btn{padding:6px 14px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:opacity .1s}
-.btn:hover{opacity:.85}
-.btn-primary{background:var(--accent);color:#000}.btn-danger{background:var(--red);color:#fff}
-.btn-success{background:var(--green);color:#000}.btn-secondary{background:var(--bg3);color:var(--text);border:1px solid var(--border)}
+.stat .lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.stat .val{font-size:22px;font-weight:700}.stat .sub{font-size:11px;color:var(--muted);margin-top:2px}
+.btn{padding:6px 14px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:4px;transition:opacity .1s}.btn:hover{opacity:.85}
+.btn-p{background:var(--accent);color:#000}.btn-d{background:var(--red);color:#fff}.btn-s{background:var(--green);color:#000}.btn-g{background:var(--bg3);color:var(--text);border:1px solid var(--border)}
 .btn-sm{padding:4px 10px;font-size:11px}
 .btn-group{display:flex;gap:6px;flex-wrap:wrap}
-/* Forms */
-.form-group{margin-bottom:12px}
-.form-group label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:600}
-.form-group input,.form-group select{width:100%;padding:7px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px}
-.form-group input:focus,.form-group select:focus{outline:none;border-color:var(--accent)}
-.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.form-row-3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
-/* Toggle */
-.toggle{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px}
-.toggle input{display:none}
-.toggle .slider{width:34px;height:18px;background:var(--bg3);border:1px solid var(--border);border-radius:9px;position:relative;transition:.2s}
-.toggle .slider::after{content:'';width:12px;height:12px;background:var(--muted);border-radius:50%;position:absolute;top:2px;left:2px;transition:.2s}
-.toggle input:checked+.slider{background:var(--accent);border-color:var(--accent)}
-.toggle input:checked+.slider::after{transform:translateX(16px);background:#fff}
-/* Table */
-.tbl{width:100%;border-collapse:collapse;font-size:12px}
-.tbl th{text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);color:var(--muted);font-size:11px;text-transform:uppercase}
-.tbl td{padding:8px 12px;border-bottom:1px solid var(--border)}.tbl tr:last-child td{border:none}
-.tbl tr:hover td{background:rgba(88,166,255,.03)}
-.badge{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600}
-.badge-g{background:rgba(63,185,80,.15);color:var(--green)}.badge-r{background:rgba(248,81,73,.15);color:var(--red)}.badge-b{background:rgba(88,166,255,.15);color:var(--accent)}
-/* Search bar */
-.search{padding:7px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;width:240px}
-.search:focus{outline:none;border-color:var(--accent)}
-/* Channel list */
-.ch-row{display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid var(--border);transition:background .1s}
-.ch-row:hover{background:rgba(88,166,255,.03)}
+.fg{margin-bottom:12px}.fg label{display:block;font-size:11px;color:var(--muted);margin-bottom:3px;font-weight:600}
+.fg input,.fg select{width:100%;padding:7px 10px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px}
+.fg input:focus,.fg select:focus{outline:none;border-color:var(--accent)}
+.fr{display:grid;grid-template-columns:1fr 1fr;gap:12px}.fr3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px}
+.toggle{display:flex;align-items:center;gap:8px;cursor:pointer;font-size:12px}.toggle input{display:none}
+.toggle .sl{width:34px;height:18px;background:var(--bg3);border:1px solid var(--border);border-radius:9px;position:relative;transition:.2s}
+.toggle .sl::after{content:'';width:12px;height:12px;background:var(--muted);border-radius:50%;position:absolute;top:2px;left:2px;transition:.2s}
+.toggle input:checked+.sl{background:var(--accent);border-color:var(--accent)}.toggle input:checked+.sl::after{transform:translateX(16px);background:#fff}
+.tbl{width:100%;border-collapse:collapse;font-size:12px}.tbl th{text-align:left;padding:8px 12px;border-bottom:1px solid var(--border);color:var(--muted);font-size:11px;text-transform:uppercase}
+.tbl td{padding:8px 12px;border-bottom:1px solid var(--border)}.tbl tr:last-child td{border:none}.tbl tr:hover td{background:rgba(88,166,255,.03)}
+.badge{padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600}.badge-g{background:rgba(63,185,80,.15);color:var(--green)}.badge-r{background:rgba(248,81,73,.15);color:var(--red)}.badge-b{background:rgba(88,166,255,.15);color:var(--accent)}
+.srch{padding:7px 12px;background:var(--bg2);border:1px solid var(--border);border-radius:6px;color:var(--text);font-size:12px;width:240px}.srch:focus{outline:none;border-color:var(--accent)}
+.ch-row{display:flex;align-items:center;gap:12px;padding:8px 12px;border-bottom:1px solid var(--border)}.ch-row:hover{background:rgba(88,166,255,.03)}
 .ch-row input[type=checkbox]{accent-color:var(--accent);width:15px;height:15px;cursor:pointer}
-.ch-logo{width:32px;height:32px;border-radius:4px;object-fit:contain;background:var(--bg3)}
-.ch-name{font-weight:600;font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ch-cat{font-size:11px;color:var(--muted);width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ch-epg{font-size:10px;width:60px;text-align:center}
-.ch-list{max-height:calc(100vh - 220px);overflow-y:auto}
-/* Lib grid */
-.lib-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:12px}
-.lib-card{background:var(--bg);border:1px solid var(--border);border-radius:6px;overflow:hidden;cursor:pointer;transition:border-color .15s}
-.lib-card:hover{border-color:var(--accent)}
-.lib-card img{width:100%;aspect-ratio:2/3;object-fit:cover;display:block;background:var(--bg3)}
-.lib-card .body{padding:8px 10px}
-.lib-card .title{font-size:11px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.lib-card .meta{font-size:10px;color:var(--muted)}
-.lib-card .plat{font-size:9px;font-weight:700;padding:2px 6px;border-radius:3px;display:inline-block;margin-top:3px}
-/* Progress */
-.prog-bar{height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;margin:6px 0}
-.prog-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .5s}
+.ch-logo{width:32px;height:32px;border-radius:4px;object-fit:contain;background:var(--bg3)}.ch-name{font-weight:600;font-size:13px;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ch-cat{font-size:11px;color:var(--muted);width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.ch-epg{font-size:10px;width:60px;text-align:center}
+.ch-list{max-height:calc(100vh - 260px);overflow-y:auto}
+.prog-bar{height:4px;background:var(--bg3);border-radius:2px;overflow:hidden;margin:6px 0}.prog-fill{height:100%;background:var(--accent);border-radius:2px;transition:width .5s}
 .prog-info{display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
-.steps{display:flex;gap:4px;margin:6px 0;flex-wrap:wrap}
-.step{padding:3px 8px;border-radius:4px;font-size:10px;background:var(--bg3);color:var(--muted);border:1px solid var(--border)}
+.steps{display:flex;gap:4px;margin:6px 0;flex-wrap:wrap}.step{padding:3px 8px;border-radius:4px;font-size:10px;background:var(--bg3);color:var(--muted);border:1px solid var(--border)}
 .step.on{border-color:var(--accent);color:var(--accent)}.step.done{border-color:var(--green);color:var(--green)}
-/* Log */
 .log-view{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px;height:360px;overflow-y:auto;font-family:monospace;font-size:10px;line-height:1.7;color:var(--muted)}
 .log-view .err{color:var(--red)}.log-view .warn{color:var(--orange)}.log-view .info{color:var(--green)}
-/* Toast */
 .toast{position:fixed;bottom:16px;right:16px;padding:10px 18px;border-radius:6px;background:var(--bg);border:1px solid var(--border);font-size:12px;z-index:999;animation:si .25s}
-.toast.ok{border-color:var(--green)}.toast.er{border-color:var(--red)}
-@keyframes si{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
-/* Info box */
-.info-box{padding:12px;border-radius:6px;background:var(--bg2);border:1px solid var(--border);font-size:12px;color:var(--muted);font-family:monospace}
-.info-box a{color:var(--accent)}
-/* Responsive */
+.toast.ok{border-color:var(--green)}.toast.er{border-color:var(--red)}@keyframes si{from{transform:translateY(20px);opacity:0}to{transform:translateY(0);opacity:1}}
+.info-box{padding:12px;border-radius:6px;background:var(--bg2);border:1px solid var(--border);font-size:12px;color:var(--muted);font-family:monospace}.info-box a{color:var(--accent)}
 .hamburger{display:none;background:none;border:none;color:#fff;font-size:20px;cursor:pointer}
-@media(max-width:768px){.sidebar{transform:translateX(-100%);z-index:100;transition:transform .2s}.sidebar.open{transform:translateX(0)}.main{margin-left:0}.hamburger{display:block}.stat-grid{grid-template-columns:1fr 1fr}.form-row,.form-row-3{grid-template-columns:1fr}.lib-grid{grid-template-columns:repeat(auto-fill,minmax(100px,1fr))}}
-/* Category filter pills */
-.cat-pills{display:flex;gap:4px;flex-wrap:wrap;margin-bottom:10px}
-.cat-pill{padding:3px 10px;border-radius:12px;font-size:10px;font-weight:500;cursor:pointer;background:var(--bg3);border:1px solid var(--border);color:var(--muted);transition:.15s}
-.cat-pill:hover{border-color:var(--accent);color:var(--text)}
-.cat-pill.on{background:var(--accent);border-color:var(--accent);color:#000;font-weight:600}
-.cat-tag{background:rgba(88,166,255,.1);border:1px solid rgba(88,166,255,.25);color:var(--accent);padding:2px 7px;border-radius:4px;font-size:10px;display:inline-flex;align-items:center;gap:4px}
-.cat-tag.auto{background:rgba(210,153,34,.1);border-color:rgba(210,153,34,.3);color:var(--orange)}
+@media(max-width:768px){.sidebar{transform:translateX(-100%);z-index:100;transition:transform .2s}.sidebar.open{transform:translateX(0)}.main{margin-left:0}.hamburger{display:block}.stat-grid{grid-template-columns:1fr 1fr}.fr,.fr3{grid-template-columns:1fr}}
+/* Playlist */
+.pl-card{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:14px 16px;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+.pl-card:hover{border-color:rgba(88,166,255,.3)}
+.pl-name{font-weight:700;font-size:14px}.pl-meta{font-size:11px;color:var(--muted);margin-top:2px}
+.pl-badge{display:inline-block;padding:2px 8px;border-radius:4px;font-size:10px;font-weight:600;margin-right:4px}
+/* Preview grid */
+.pv-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-top:12px}
+.pv-card{background:var(--bg3);border-radius:4px;overflow:hidden;font-size:10px}
+.pv-card img{width:100%;aspect-ratio:2/3;object-fit:cover;display:block}.pv-card .t{padding:4px 6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 </style>
 </head>
 <body>
 <div style="display:flex;min-height:100vh">
-<!-- SIDEBAR -->
 <div class="sidebar" id="sidebar">
   <div class="logo"><span>&#9673;</span> IPTV Manager</div>
   <div class="nav-item active" data-page="dashboard">Dashboard</div>
   <div class="nav-item" data-page="livetv">Live TV</div>
-  <div class="nav-item" data-page="vod">VOD Library</div>
+  <div class="nav-item" data-page="playlists">Playlists</div>
   <div class="nav-item" data-page="categories">Categories</div>
   <div class="nav-item" data-page="providers">Providers</div>
   <div class="nav-item" data-page="history">History</div>
   <div class="nav-item" data-page="logs">Logs</div>
   <div class="nav-item" data-page="settings">Settings</div>
 </div>
-<!-- MAIN -->
 <div class="main">
 <div class="topbar">
-  <div style="display:flex;align-items:center;gap:10px">
-    <button class="hamburger" onclick="document.getElementById('sidebar').classList.toggle('open')">&#9776;</button>
-    <h1 id="pageTitle">Dashboard</h1>
-  </div>
-  <div class="btn-group">
-    <button class="btn btn-primary" id="btnScan" onclick="doScan()">&#9654; Scan</button>
-    <button class="btn btn-danger btn-sm" id="btnStop" onclick="doStop()" style="display:none">&#9632; Stop</button>
-    <button class="btn btn-secondary btn-sm" onclick="doDedup()">Dedup</button>
-    <button class="btn btn-success btn-sm" onclick="doJF()">Jellyfin Rescan</button>
-  </div>
+  <div style="display:flex;align-items:center;gap:10px"><button class="hamburger" onclick="document.getElementById('sidebar').classList.toggle('open')">&#9776;</button><h1 id="pt">Dashboard</h1></div>
+  <div class="btn-group"><button class="btn btn-p" id="bScan" onclick="doScan()">&#9654; Scan</button><button class="btn btn-d btn-sm" id="bStop" onclick="doStop()" style="display:none">&#9632; Stop</button><button class="btn btn-g btn-sm" onclick="doDedup()">Dedup</button><button class="btn btn-s btn-sm" onclick="doJF()">Jellyfin Rescan</button></div>
 </div>
 <div class="content">
 
-<!-- ===== DASHBOARD ===== -->
+<!-- DASHBOARD -->
 <div class="page active" id="page-dashboard">
 <div class="stat-grid">
-  <div class="stat"><div class="label">Movies</div><div class="val" style="color:var(--accent)" id="vMov">-</div><div class="sub" id="sMov"></div></div>
-  <div class="stat"><div class="label">Series / Episodes</div><div class="val" style="color:var(--purple)" id="vSer">-</div><div class="sub" id="sSer"></div></div>
-  <div class="stat"><div class="label">Enabled Channels</div><div class="val" style="color:var(--orange)" id="vCh">-</div><div class="sub" id="sCh"></div></div>
-  <div class="stat"><div class="label">TMDB Enriched</div><div class="val" style="color:var(--yellow)" id="vTmdb">-</div><div class="sub" id="sTmdb"></div></div>
-  <div class="stat"><div class="label">HDHomeRun</div><div class="val" style="color:var(--green)" id="vHdhr">-</div><div class="sub" id="sHdhr"></div></div>
-  <div class="stat"><div class="label">Proxy</div><div class="val" style="color:var(--accent)" id="vPx">-</div><div class="sub" id="sPx"></div></div>
+  <div class="stat"><div class="lbl">Movies</div><div class="val" style="color:var(--accent)" id="vM">-</div><div class="sub" id="sM"></div></div>
+  <div class="stat"><div class="lbl">Series / Episodes</div><div class="val" style="color:var(--purple)" id="vS">-</div><div class="sub" id="sS"></div></div>
+  <div class="stat"><div class="lbl">Enabled Channels</div><div class="val" style="color:var(--orange)" id="vC">-</div><div class="sub" id="sC"></div></div>
+  <div class="stat"><div class="lbl">Playlists</div><div class="val" style="color:var(--yellow)" id="vPl">-</div><div class="sub">Jellyfin collections</div></div>
+  <div class="stat"><div class="lbl">HDHomeRun</div><div class="val" style="color:var(--green)" id="vH">-</div><div class="sub" id="sH"></div></div>
+  <div class="stat"><div class="lbl">Proxy</div><div class="val" style="color:var(--accent)" id="vP">-</div><div class="sub" id="sP"></div></div>
 </div>
-<div class="card" id="progPanel" style="display:none;margin-bottom:16px"><div class="card-head">Scan Progress</div><div class="card-body"><div class="steps" id="scanSteps"></div><div class="prog-bar"><div class="prog-fill" id="progFill" style="width:0%"></div></div><div class="prog-info"><span id="progDetail">Starting...</span><span id="progPct">0%</span></div></div></div>
+<div class="card" id="progP" style="display:none;margin-bottom:16px"><div class="card-head">Scan Progress</div><div class="card-body"><div class="steps" id="sSteps"></div><div class="prog-bar"><div class="prog-fill" id="pFill" style="width:0%"></div></div><div class="prog-info"><span id="pDet">Starting...</span><span id="pPct">0%</span></div></div></div>
 <div class="card" style="margin-bottom:16px"><div class="card-head">Jellyfin Setup</div><div class="card-body">
   <p style="font-size:12px;color:var(--muted);margin-bottom:10px">Add this app as an <b>HDHomeRun</b> tuner in Jellyfin for Live TV + DVR.</p>
-  <div class="info-box" id="jfSetup">Loading URLs...</div>
+  <div class="info-box" id="jfSetup">Loading...</div>
+  <p style="font-size:11px;color:var(--muted);margin-top:8px"><b>Playlists:</b> Add a <b>Music</b> or <b>Playlists</b> library in Jellyfin pointing to <code id="plDir"></code></p>
 </div></div>
-<div class="card" style="margin-bottom:16px"><div class="card-head">Last Scan</div><div class="card-body" id="lastScan"><span style="color:var(--muted)">No scan yet.</span></div></div>
-<div class="card"><div class="card-head">Jellyfin</div><div class="card-body" id="jfStatus"><span style="color:var(--muted)">Checking...</span></div></div>
+<div class="card" style="margin-bottom:16px"><div class="card-head">Last Scan</div><div class="card-body" id="lScan"><span style="color:var(--muted)">No scan yet.</span></div></div>
+<div class="card"><div class="card-head">Jellyfin</div><div class="card-body" id="jfSt"><span style="color:var(--muted)">Checking...</span></div></div>
 </div>
 
-<!-- ===== LIVE TV ===== -->
+<!-- LIVE TV -->
 <div class="page" id="page-livetv">
 <div class="card">
-  <div class="card-head">
-    <span>Live TV Channels</span>
-    <div class="btn-group">
-      <button class="btn btn-sm btn-secondary" onclick="chSelectFiltered()">Select All Filtered</button>
-      <button class="btn btn-sm btn-secondary" onclick="chDeselectAll()">Deselect All</button>
-      <button class="btn btn-sm btn-primary" onclick="chSave()">Save &amp; Regenerate</button>
+  <div class="card-head"><span>Live TV Channels <small style="color:var(--muted);font-weight:400">(from your whitelisted Live categories)</small></span>
+    <div class="btn-group"><button class="btn btn-sm btn-g" onclick="chSelFilt()">Select All Filtered</button><button class="btn btn-sm btn-g" onclick="chDesel()">Deselect All</button><button class="btn btn-sm btn-p" onclick="chSave()">Save &amp; Regenerate</button></div>
+  </div>
+  <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+    <input class="srch" id="chQ" placeholder="Search channels..." oninput="chRender()">
+    <select class="srch" id="chCat" onchange="chRender()" style="width:220px"><option value="">All Categories</option></select>
+    <span style="font-size:11px;color:var(--muted)" id="chCnt"></span>
+  </div>
+  <div class="ch-list" id="chList"><p style="padding:20px;color:var(--muted)">Click Live TV to load channels from your provider...</p></div>
+  <div id="chPag" style="padding:10px 16px;display:flex;gap:6px;flex-wrap:wrap;align-items:center"></div>
+</div>
+</div>
+
+<!-- PLAYLISTS -->
+<div class="page" id="page-playlists">
+<div class="card" style="margin-bottom:16px">
+  <div class="card-head">Create Playlist<button class="btn btn-sm btn-p" onclick="plPreview()" style="margin-left:auto;margin-right:6px">Preview</button><button class="btn btn-sm btn-s" onclick="plCreate()">Create</button></div>
+  <div class="card-body">
+    <div class="fr3">
+      <div class="fg"><label>Playlist Name</label><input id="plName" placeholder="e.g. Netflix Popular Movies"></div>
+      <div class="fg"><label>Content Type</label><select id="plType"><option value="movies">Movies</option><option value="series">Series</option></select></div>
+      <div class="fg"><label>Platform Filter</label><select id="plPlat"><option value="">All Platforms</option></select></div>
     </div>
+    <div class="fr">
+      <div class="fg"><label>Min Quality</label><select id="plQual"><option value="0">Any</option><option value="720">720p+</option><option value="1080">1080p+</option><option value="2160">4K</option></select></div>
+      <div class="fg"><label>Search Filter</label><input id="plSearch" placeholder="Optional text filter..."></div>
+    </div>
+    <div id="plPrev"></div>
   </div>
-  <div style="padding:12px 16px;border-bottom:1px solid var(--border);display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-    <input class="search" id="chSearch" placeholder="Search channels..." oninput="chRender()">
-    <select class="search" id="chCatFilter" onchange="chRender()" style="width:200px"><option value="">All Categories</option></select>
-    <span style="font-size:11px;color:var(--muted)" id="chCount"></span>
-  </div>
-  <div class="ch-list" id="chList"><p style="padding:20px;color:var(--muted)">Loading channels... Click to load from provider.</p></div>
-</div>
-</div>
-
-<!-- ===== VOD LIBRARY ===== -->
-<div class="page" id="page-vod">
-<div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap">
-  <div class="btn-group" style="margin:0">
-    <button class="btn btn-sm btn-primary" id="vodMovBtn" onclick="vodType('movies')">Movies</button>
-    <button class="btn btn-sm btn-secondary" id="vodSerBtn" onclick="vodType('series')">Series</button>
-  </div>
-  <input class="search" id="vodSearch" placeholder="Search titles..." oninput="vodDoSearch()">
-  <select class="search" id="vodPlatFilter" onchange="vodLoad()" style="width:180px"><option value="">All Platforms</option></select>
-  <span style="font-size:11px;color:var(--muted)" id="vodCount"></span>
-</div>
-<div class="lib-grid" id="vodGrid"><p style="color:var(--muted)">Loading...</p></div>
-<div id="vodPag" style="display:flex;gap:6px;margin-top:14px;flex-wrap:wrap;align-items:center"></div>
-</div>
-
-<!-- ===== CATEGORIES ===== -->
-<div class="page" id="page-categories">
-<div style="display:flex;gap:4px;margin-bottom:12px">
-  <button class="btn btn-sm btn-primary" id="catVod" onclick="ldCat('vod',this)">Movies</button>
-  <button class="btn btn-sm btn-secondary" id="catSer" onclick="ldCat('series',this)">Series</button>
-  <button class="btn btn-sm btn-secondary" id="catLive" onclick="ldCat('live',this)">Live</button>
 </div>
 <div class="card">
-  <div class="card-head"><span>Category Whitelist</span>
-    <div class="btn-group">
-      <button class="btn btn-sm btn-secondary" onclick="catAll()">All</button>
-      <button class="btn btn-sm btn-secondary" onclick="catNone()">None</button>
-      <button class="btn btn-sm btn-primary" onclick="catSave()">Save</button>
-    </div>
-  </div>
-  <div class="card-body">
-    <input class="search" id="catQ" placeholder="Search categories..." oninput="catRender()" style="margin-bottom:10px">
-    <div id="catList" style="max-height:calc(100vh - 300px);overflow-y:auto"><p style="color:var(--muted)">Select a tab above.</p></div>
-  </div>
+  <div class="card-head">Your Playlists<button class="btn btn-sm btn-g" onclick="plRegenAll()">Regenerate All</button></div>
+  <div class="card-body" id="plList"><p style="color:var(--muted)">No playlists yet. Create one above.</p></div>
 </div>
 </div>
 
-<!-- ===== PROVIDERS ===== -->
+<!-- CATEGORIES -->
+<div class="page" id="page-categories">
+<div style="display:flex;gap:4px;margin-bottom:12px">
+  <button class="btn btn-sm btn-p" id="cV" onclick="ldCat('vod',this)">Movies</button>
+  <button class="btn btn-sm btn-g" id="cS" onclick="ldCat('series',this)">Series</button>
+  <button class="btn btn-sm btn-g" id="cL" onclick="ldCat('live',this)">Live</button>
+</div>
+<div class="card"><div class="card-head"><span>Category Whitelist</span><div class="btn-group"><button class="btn btn-sm btn-g" onclick="caAll()">All</button><button class="btn btn-sm btn-g" onclick="caNone()">None</button><button class="btn btn-sm btn-p" onclick="caSave()">Save</button></div></div>
+  <div class="card-body"><input class="srch" id="caQ" placeholder="Search categories..." oninput="caR()" style="margin-bottom:10px"><div id="caList" style="max-height:calc(100vh - 300px);overflow-y:auto"><p style="color:var(--muted)">Select a tab above.</p></div></div>
+</div></div>
+
+<!-- PROVIDERS -->
 <div class="page" id="page-providers">
-<div class="card"><div class="card-head">Providers<button class="btn btn-sm btn-primary" onclick="$('addProv').style.display='block'">+ Add</button></div><div class="card-body" id="provList">Loading...</div></div>
-<div class="card" id="addProv" style="display:none;margin-top:12px"><div class="card-head">Add Provider</div><div class="card-body"><div class="form-row-3"><div class="form-group"><label>Name</label><input id="ap-n"></div><div class="form-group"><label>Server</label><input id="ap-s"></div><div class="form-group"><label>Username</label><input id="ap-u"></div></div><div class="form-group"><label>Password</label><input id="ap-p" type="password"></div><div class="btn-group"><button class="btn btn-primary" onclick="addProv()">Add</button><button class="btn btn-secondary" onclick="$('addProv').style.display='none'">Cancel</button></div></div></div>
+<div class="card"><div class="card-head">Providers<button class="btn btn-sm btn-p" onclick="$('aP').style.display='block'">+ Add</button></div><div class="card-body" id="pList">Loading...</div></div>
+<div class="card" id="aP" style="display:none;margin-top:12px"><div class="card-head">Add Provider</div><div class="card-body"><div class="fr3"><div class="fg"><label>Name</label><input id="ap-n"></div><div class="fg"><label>Server</label><input id="ap-s"></div><div class="fg"><label>Username</label><input id="ap-u"></div></div><div class="fg"><label>Password</label><input id="ap-p" type="password"></div><div class="btn-group"><button class="btn btn-p" onclick="addP()">Add</button><button class="btn btn-g" onclick="$('aP').style.display='none'">Cancel</button></div></div></div>
 </div>
 
-<!-- ===== HISTORY ===== -->
-<div class="page" id="page-history"><div class="card"><div class="card-head">Scan History</div><div class="card-body"><table class="tbl"><thead><tr><th>Date</th><th>Duration</th><th>Movies</th><th>Episodes</th><th>Live</th><th></th></tr></thead><tbody id="histBody"><tr><td colspan="6" style="color:var(--muted)">Loading...</td></tr></tbody></table></div></div></div>
+<!-- HISTORY -->
+<div class="page" id="page-history"><div class="card"><div class="card-head">Scan History</div><div class="card-body"><table class="tbl"><thead><tr><th>Date</th><th>Duration</th><th>Movies</th><th>Episodes</th><th>Live</th><th></th></tr></thead><tbody id="hB"></tbody></table></div></div></div>
 
-<!-- ===== LOGS ===== -->
-<div class="page" id="page-logs"><div class="card"><div class="card-head">Live Log<button class="btn btn-sm btn-secondary" onclick="ldLogs()">Refresh</button></div><div class="card-body"><div class="log-view" id="logOut">Loading...</div></div></div></div>
+<!-- LOGS -->
+<div class="page" id="page-logs"><div class="card"><div class="card-head">Live Log<button class="btn btn-sm btn-g" onclick="ldLogs()">Refresh</button></div><div class="card-body"><div class="log-view" id="lO">Loading...</div></div></div></div>
 
-<!-- ===== SETTINGS ===== -->
+<!-- SETTINGS -->
 <div class="page" id="page-settings">
-<div class="card" style="margin-bottom:12px"><div class="card-head">TMDB</div><div class="card-body"><div class="form-group"><label>API Key</label><input id="si-tmdb"></div></div></div>
-<div class="card" style="margin-bottom:12px"><div class="card-head">Jellyfin</div><div class="card-body"><div class="form-row"><div class="form-group"><label>URL</label><input id="si-jfu" placeholder="http://localhost:8096"></div><div class="form-group"><label>API Key</label><input id="si-jfk"></div></div><label class="toggle"><input type="checkbox" id="si-jfa"><div class="slider"></div>Auto rescan after scan</label></div></div>
-<div class="card" style="margin-bottom:12px"><div class="card-head">HDHomeRun Tuner</div><div class="card-body"><label class="toggle" style="margin-bottom:10px"><input type="checkbox" id="si-te"><div class="slider"></div>Enable HDHomeRun emulator</label><div class="form-row"><div class="form-group"><label>Device Name</label><input id="si-dn"></div><div class="form-group"><label>Tuner Count</label><input type="number" id="si-tc" min="1" max="8"></div></div></div></div>
-<div class="card" style="margin-bottom:12px"><div class="card-head">Schedule</div><div class="card-body"><label class="toggle" style="margin-bottom:10px"><input type="checkbox" id="si-se"><div class="slider"></div>Enable auto-scan</label><div class="form-row"><div class="form-group"><label>Time</label><input type="time" id="si-st" value="03:30"></div><div class="form-group"><label>Frequency</label><select id="si-sf"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div></div></div></div>
-<button class="btn btn-primary" onclick="saveSt()">Save All Settings</button>
+<div class="card" style="margin-bottom:12px"><div class="card-head">TMDB</div><div class="card-body"><div class="fg"><label>API Key</label><input id="si-t"></div></div></div>
+<div class="card" style="margin-bottom:12px"><div class="card-head">Jellyfin</div><div class="card-body"><div class="fr"><div class="fg"><label>URL</label><input id="si-ju" placeholder="http://localhost:8096"></div><div class="fg"><label>API Key</label><input id="si-jk"></div></div><label class="toggle"><input type="checkbox" id="si-ja"><div class="sl"></div>Auto rescan after scan</label></div></div>
+<div class="card" style="margin-bottom:12px"><div class="card-head">HDHomeRun Tuner</div><div class="card-body"><label class="toggle" style="margin-bottom:10px"><input type="checkbox" id="si-te"><div class="sl"></div>Enable HDHomeRun emulator</label><div class="fr"><div class="fg"><label>Device Name</label><input id="si-dn"></div><div class="fg"><label>Tuner Count</label><input type="number" id="si-tc" min="1" max="8"></div></div></div></div>
+<div class="card" style="margin-bottom:12px"><div class="card-head">Schedule</div><div class="card-body"><label class="toggle" style="margin-bottom:10px"><input type="checkbox" id="si-se"><div class="sl"></div>Enable auto-scan</label><div class="fr"><div class="fg"><label>Time</label><input type="time" id="si-st" value="03:30"></div><div class="fg"><label>Frequency</label><select id="si-sf"><option value="daily">Daily</option><option value="weekly">Weekly</option><option value="monthly">Monthly</option></select></div></div></div></div>
+<button class="btn btn-p" onclick="saveSt()">Save All Settings</button>
 </div>
 
 </div></div></div>
@@ -242,201 +189,178 @@ function api(u,o){o=o||{};o.headers={"Content-Type":"application/json"};return f
 function toast(m,ok){var e=document.createElement("div");e.className="toast "+(ok!==false?"ok":"er");e.textContent=m;document.body.appendChild(e);setTimeout(()=>e.remove(),3000)}
 function esc(s){return(s||"").replace(/'/g,"\\'").replace(/"/g,"&quot;")}
 
-// Nav
-document.querySelectorAll(".nav-item").forEach(item=>{
-  item.addEventListener("click",()=>{
-    document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));
-    item.classList.add("active");
-    document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));
-    $(("page-"+item.dataset.page)).classList.add("active");
-    $("pageTitle").textContent=item.textContent.trim();
-    $("sidebar").classList.remove("open");
-    var pg=item.dataset.page;
-    if(pg==="livetv")ldChannels();
-    if(pg==="vod")vodLoad();
-    if(pg==="categories"&&!catData.length)ldCat("vod",$("catVod"));
-    if(pg==="history")ldHist();
-    if(pg==="logs")ldLogs();
-    if(pg==="settings")ldSt();
-    if(pg==="providers")ldProv();
-  });
-});
+document.querySelectorAll(".nav-item").forEach(item=>{item.addEventListener("click",()=>{
+  document.querySelectorAll(".nav-item").forEach(n=>n.classList.remove("active"));item.classList.add("active");
+  document.querySelectorAll(".page").forEach(p=>p.classList.remove("active"));$("page-"+item.dataset.page).classList.add("active");
+  $("pt").textContent=item.textContent.trim();$("sidebar").classList.remove("open");
+  var pg=item.dataset.page;
+  if(pg==="livetv")ldCh();if(pg==="playlists")ldPl();if(pg==="categories"&&!caD.length)ldCat("vod",$("cV"));
+  if(pg==="history")ldHist();if(pg==="logs")ldLogs();if(pg==="settings")ldSt();if(pg==="providers")ldProv();
+})});
 
-// ===== POLLING =====
-function poll(){
-  api("/api/status").then(d=>{
-    var l=d.library||{},dd=d.dedup_stats||{};
-    $("vMov").textContent=F(l.movies); $("sMov").textContent=(l.movies_with_tmdb||0)?l.movies_with_tmdb+" TMDB matched":"";
-    $("vSer").textContent=F(l.series); $("sSer").textContent=(l.episodes||0)?F(l.episodes)+" episodes":"";
-    $("vCh").textContent=F(d.enabled_channels||0); $("sCh").textContent=(l.live_channels||0)?F(l.live_channels)+" total from provider":"";
-    var en=d.enrich_stats||{},te=(l.movies_with_tmdb||0)+(l.series_with_tmdb||0);
-    $("vTmdb").textContent=F(te); $("sTmdb").textContent=(en.enriched||0)?"last: +"+en.enriched:"all time";
-    // HDHomeRun
-    if(d.tuner&&d.tuner.enabled){$("vHdhr").textContent=d.tuner.tuner_count+" Tuners";$("sHdhr").textContent=d.tuner.device_name}
-    else{$("vHdhr").textContent="Off";$("sHdhr").textContent="Enable in settings"}
-    // Proxy
-    if(d.proxy){$("vPx").textContent=(d.proxy.active_streams||0)+" streams";$("sPx").textContent=(d.proxy.channels_loaded||0)+" channels loaded"}
-    else{$("vPx").textContent="N/A";$("sPx").textContent=""}
-    // Jellyfin setup URLs
-    var base=location.origin;
-    $("jfSetup").innerHTML="<b>HDHomeRun Tuner URL:</b> <a href='"+base+"/discover.json'>"+base+"</a><br>"
-      +"<b>EPG / XMLTV URL:</b> <a href='"+base+"/proxy/epg.xml'>"+base+"/proxy/epg.xml</a><br>"
-      +"<small style='color:var(--muted)'>Add as HDHomeRun tuner in Jellyfin > Dashboard > Live TV > Add Tuner Device</small>";
-    // Scan progress
-    if(d.scan_running){
-      $("progPanel").style.display="block";$("btnScan").style.display="none";$("btnStop").style.display="";
-      var p=d.scan_progress||{};
-      $("progFill").style.width=(p.percent||0)+"%";$("progPct").textContent=Math.round(p.percent||0)+"%";
-      $("progDetail").textContent=(p.step_label||"Working")+(p.details?" - "+p.details:"");
-      var nm=["Movies","Series","Live TV","TMDB","Done"],c=p.step_number||0;
-      $("scanSteps").innerHTML=nm.map((s,i)=>{var n=i+1;return'<div class="step '+(n<c?"done":n===c?"on":"")+'">'+( n<c?"\u2713":n)+" "+s+"</div>"}).join("");
-    }else{$("progPanel").style.display="none";$("btnScan").style.display="";$("btnStop").style.display="none"}
-    // Last scan
-    if(d.last_scan){var s=d.last_scan;$("lastScan").innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px;font-size:12px"><div><span style="color:var(--muted);font-size:10px">Date</span><br><b>'+(s.started_at?new Date(s.started_at).toLocaleString():"-")+'</b></div><div><span style="color:var(--muted);font-size:10px">Duration</span><br><b>'+(s.duration||"-")+'</b></div><div><span style="color:var(--muted);font-size:10px">Movies</span><br><b>'+F(s.new_movies)+'</b></div><div><span style="color:var(--muted);font-size:10px">Episodes</span><br><b>'+F(s.new_episodes)+'</b></div><div><span style="color:var(--muted);font-size:10px">Live</span><br><b>'+F(s.live_channels||s.new_channels)+'</b></div></div>'}
-    // Jellyfin
-    var jf=$("jfStatus");
-    if(d.jellyfin){if(d.jellyfin.online)jf.innerHTML='<span style="color:var(--green)">&#9679; Online</span> - '+(d.jellyfin.name||"")+" v"+(d.jellyfin.version||"")+(d.jellyfin.auth?"":" <span style='color:var(--red)'>(no API key)</span>");else jf.innerHTML='<span style="color:var(--red)">&#9679; Offline</span>'}
-    else jf.innerHTML='<span style="color:var(--muted)">Not configured</span>';
-  }).catch(e=>console.error(e));
-}
+// ===== POLL =====
+function poll(){api("/api/status").then(d=>{
+  var l=d.library||{},dd=d.dedup_stats||{};
+  $("vM").textContent=F(l.movies);$("sM").textContent=(l.movies_with_tmdb||0)?l.movies_with_tmdb+" TMDB":"";
+  $("vS").textContent=F(l.series);$("sS").textContent=(l.episodes||0)?F(l.episodes)+" eps":"";
+  $("vC").textContent=F(d.enabled_channels||0);$("sC").textContent=(l.live_channels||0)?F(l.live_channels)+" from provider":"";
+  $("vPl").textContent=F(d.playlist_count||0);
+  if(d.tuner&&d.tuner.enabled){$("vH").textContent=d.tuner.tuner_count+" Tuners";$("sH").textContent=d.tuner.device_name}
+  else{$("vH").textContent="Off";$("sH").textContent="Enable in settings"}
+  if(d.proxy){$("vP").textContent=(d.proxy.active_streams||0)+" streams";$("sP").textContent=(d.proxy.channels_loaded||0)+" loaded"}
+  else{$("vP").textContent="N/A";$("sP").textContent=""}
+  var base=location.origin;
+  $("jfSetup").innerHTML="<b>HDHomeRun Tuner URL:</b> <a href='"+base+"/discover.json'>"+base+"</a><br>"
+    +"<b>EPG / XMLTV URL:</b> <a href='"+base+"/proxy/epg.xml'>"+base+"/proxy/epg.xml</a><br>"
+    +"<small>Jellyfin > Dashboard > Live TV > Add Tuner (HDHomeRun) > enter URL above</small>";
+  $("plDir").textContent=base+"/playlists/ (or the filesystem path shown in logs)";
+  if(d.scan_running){
+    $("progP").style.display="block";$("bScan").style.display="none";$("bStop").style.display="";
+    var p=d.scan_progress||{};$("pFill").style.width=(p.percent||0)+"%";$("pPct").textContent=Math.round(p.percent||0)+"%";
+    $("pDet").textContent=(p.step_label||"Working")+(p.details?" - "+p.details:"");
+    var nm=["Movies","Series","Live TV","TMDB","Done"],c=p.step_number||0;
+    $("sSteps").innerHTML=nm.map((s,i)=>{var n=i+1;return'<div class="step '+(n<c?"done":n===c?"on":"")+'">'+( n<c?"\u2713":n)+" "+s+"</div>"}).join("");
+  }else{$("progP").style.display="none";$("bScan").style.display="";$("bStop").style.display="none"}
+  if(d.last_scan){var s=d.last_scan;$("lScan").innerHTML='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:8px;font-size:12px"><div><span style="color:var(--muted);font-size:10px">Date</span><br><b>'+(s.started_at?new Date(s.started_at).toLocaleString():"-")+'</b></div><div><span style="color:var(--muted);font-size:10px">Duration</span><br><b>'+(s.duration||"-")+'</b></div><div><span style="color:var(--muted);font-size:10px">Movies</span><br><b>'+F(s.new_movies)+'</b></div><div><span style="color:var(--muted);font-size:10px">Episodes</span><br><b>'+F(s.new_episodes)+'</b></div><div><span style="color:var(--muted);font-size:10px">Live</span><br><b>'+F(s.live_channels||s.new_channels)+'</b></div></div>'}
+  var jf=$("jfSt");if(d.jellyfin){if(d.jellyfin.online)jf.innerHTML='<span style="color:var(--green)">&#9679; Online</span> - '+(d.jellyfin.name||"")+" v"+(d.jellyfin.version||"")+(d.jellyfin.auth?"":" <span style='color:var(--red)'>(no API key)</span>");else jf.innerHTML='<span style="color:var(--red)">&#9679; Offline</span>'}else jf.innerHTML='<span style="color:var(--muted)">Not configured</span>';
+}).catch(e=>console.error(e))}
 function doScan(){api("/api/scan",{method:"POST"});toast("Scan started")}
 function doStop(){api("/api/scan/stop",{method:"POST"});toast("Stop requested")}
 function doDedup(){api("/api/scan/dedup",{method:"POST"}).then(d=>toast(d.error||"Dedup running",!d.error))}
 function doJF(){api("/api/jellyfin/scan",{method:"POST"}).then(d=>toast(d.success?"Jellyfin rescan triggered":(d.error||"Failed"),d.success))}
 
-// ===== LIVE TV CHANNELS =====
-var chData=[], chLoaded=false;
-function ldChannels(){
-  if(chLoaded&&chData.length){chRender();return}
-  $("chList").innerHTML='<p style="padding:20px;color:var(--muted)">Loading channels from provider...</p>';
-  api("/api/channels").then(d=>{
-    chData=d.channels||[];chLoaded=true;
-    // Populate category dropdown
-    var sel=$("chCatFilter");sel.innerHTML='<option value="">All Categories ('+chData.length+')</option>';
-    (d.categories||[]).forEach(c=>{var cnt=chData.filter(x=>x.category===c).length;sel.innerHTML+='<option value="">'+c+' ('+cnt+')</option>';});
-    // Fix: use category_id for filtering
-    var catIds={};chData.forEach(c=>{if(c.category&&c.category_id)catIds[c.category]=c.category_id});
-    sel.innerHTML='<option value="">All Categories ('+chData.length+')</option>';
-    (d.categories||[]).forEach(c=>{var cnt=chData.filter(x=>x.category===c).length;sel.innerHTML+='<option value="'+(catIds[c]||"")+'">'+c+' ('+cnt+')</option>'});
+// ===== LIVE TV =====
+var chData=[],chPage=1,chLoaded=false;
+function ldCh(){
+  if(chLoaded){chRender();return}
+  $("chList").innerHTML='<p style="padding:20px;color:var(--muted)">Loading channels from provider (whitelisted categories only)...</p>';
+  api("/api/channels?per_page=5000").then(d=>{
+    chData=d.channels||[];chLoaded=true;chPage=1;
+    var sel=$("chCat");sel.innerHTML='<option value="">All Categories ('+chData.length+')</option>';
+    (d.categories||[]).forEach(c=>sel.innerHTML+='<option value="'+c.id+'">'+c.name+' ('+c.count+')</option>');
     chRender();
-  }).catch(()=>{$("chList").innerHTML='<p style="padding:20px;color:var(--red)">Failed to load channels</p>'});
+  }).catch(()=>{$("chList").innerHTML='<p style="padding:20px;color:var(--red)">Failed to load. Make sure you selected Live categories in the Categories tab first.</p>'});
+}
+function chFiltered(){
+  var q=$("chQ").value.toLowerCase(),cat=$("chCat").value;
+  return chData.filter(c=>{
+    if(q&&c.name.toLowerCase().indexOf(q)<0&&(c.category||"").toLowerCase().indexOf(q)<0)return false;
+    if(cat&&c.category_id!==cat)return false;return true;
+  });
 }
 function chRender(){
-  var q=$("chSearch").value.toLowerCase();
-  var cat=$("chCatFilter").value;
-  var filtered=chData.filter(c=>{
-    if(q&&c.name.toLowerCase().indexOf(q)<0&&(c.category||"").toLowerCase().indexOf(q)<0)return false;
-    if(cat&&c.category_id!==cat)return false;
-    return true;
-  });
-  var en=filtered.filter(c=>c.enabled).length;
-  $("chCount").textContent=en+" enabled / "+filtered.length+" shown / "+chData.length+" total";
-  $("chList").innerHTML=filtered.map(c=>'<div class="ch-row">'
-    +'<input type="checkbox" '+(c.enabled?"checked":"")
-    +' onchange="chToggle(\''+c.stream_id+'\',this.checked)">'
+  var f=chFiltered(),pp=200,pages=Math.ceil(f.length/pp);
+  if(chPage>pages)chPage=1;
+  var start=(chPage-1)*pp,slice=f.slice(start,start+pp);
+  var en=f.filter(c=>c.enabled).length;
+  $("chCnt").textContent=en+" enabled / "+f.length+" shown / "+chData.length+" total";
+  $("chList").innerHTML=slice.length?slice.map(c=>'<div class="ch-row">'
+    +'<input type="checkbox" '+(c.enabled?"checked":"")+' onchange="chTog(\''+c.stream_id+'\',this.checked)">'
     +(c.logo?'<img class="ch-logo" src="'+c.logo+'" onerror="this.style.display=\'none\'">':'<div class="ch-logo"></div>')
     +'<div class="ch-name" title="'+esc(c.name)+'">'+c.name+'</div>'
     +'<div class="ch-cat">'+c.category+'</div>'
-    +'<div class="ch-epg">'+(c.epg_id?'<span class="badge badge-g">EPG</span>':'<span class="badge badge-r">No EPG</span>')+'</div>'
-    +'</div>').join("");
+    +'<div class="ch-epg">'+(c.epg_id?'<span class="badge badge-g">EPG</span>':'<span class="badge badge-r">-</span>')+'</div>'
+    +'</div>').join(""):'<p style="padding:20px;color:var(--muted)">No channels match. Select Live categories in the Categories tab first.</p>';
+  // Pagination
+  if(pages>1){var h='';
+    if(chPage>1)h+='<button class="btn btn-sm btn-g" onclick="chGo('+(chPage-1)+')">Prev</button>';
+    for(var i=Math.max(1,chPage-2);i<=Math.min(pages,chPage+2);i++)h+='<button class="btn btn-sm '+(i===chPage?"btn-p":"btn-g")+'" onclick="chGo('+i+')">'+i+'</button>';
+    if(chPage<pages)h+='<button class="btn btn-sm btn-g" onclick="chGo('+(chPage+1)+')">Next</button>';
+    h+='<span style="font-size:10px;color:var(--muted)">Page '+chPage+'/'+pages+'</span>';
+    $("chPag").innerHTML=h;
+  }else $("chPag").innerHTML="";
 }
-function chToggle(sid,en){var c=chData.find(x=>x.stream_id===sid);if(c)c.enabled=en;chRender()}
-function chSelectFiltered(){
-  var q=$("chSearch").value.toLowerCase();var cat=$("chCatFilter").value;
-  chData.forEach(c=>{
-    var match=true;
-    if(q&&c.name.toLowerCase().indexOf(q)<0&&(c.category||"").toLowerCase().indexOf(q)<0)match=false;
-    if(cat&&c.category_id!==cat)match=false;
-    if(match)c.enabled=true;
-  });chRender();
+function chGo(n){chPage=n;chRender();$("chList").scrollTop=0}
+function chTog(sid,en){var c=chData.find(x=>x.stream_id===sid);if(c)c.enabled=en;
+  // Update count display without full re-render
+  var f=chFiltered(),enCnt=f.filter(c=>c.enabled).length;
+  $("chCnt").textContent=enCnt+" enabled / "+f.length+" shown / "+chData.length+" total";
 }
-function chDeselectAll(){chData.forEach(c=>c.enabled=false);chRender()}
+function chSelFilt(){chFiltered().forEach(c=>c.enabled=true);chRender()}
+function chDesel(){chData.forEach(c=>c.enabled=false);chRender()}
 function chSave(){
   var enabled=chData.filter(c=>c.enabled).map(c=>c.stream_id);
-  $("chList").innerHTML='<p style="padding:20px;color:var(--accent)">Saving and regenerating M3U + EPG...</p>';
+  toast("Saving "+enabled.length+" channels...");
   api("/api/channels/save",{method:"POST",body:JSON.stringify({enabled:enabled})}).then(d=>{
-    toast(d.message||"Saved");chRender();
+    toast(d.message||"Saved");
   }).catch(()=>toast("Save failed",false));
 }
 
-// ===== VOD LIBRARY =====
-var vodCurType="movies",vodCurPlat="",vodPage=1,vodTm=null;
-var PLAT_COLORS={"Netflix":{bg:"rgba(229,9,20,.18)",tx:"#ff4444"},"Amazon Prime":{bg:"rgba(0,168,225,.15)",tx:"#38bdf8"},"Disney+":{bg:"rgba(80,100,230,.18)",tx:"#8899ff"},"HBO Max":{bg:"rgba(124,58,237,.18)",tx:"#c084fc"},"Hulu":{bg:"rgba(28,231,131,.15)",tx:"#34d399"},"Apple TV+":{bg:"rgba(200,200,200,.12)",tx:"#ccc"},"Paramount+":{bg:"rgba(0,100,255,.15)",tx:"#6699ff"}};
-function vodType(t){vodCurType=t;vodPage=1;vodCurPlat="";$("vodMovBtn").className="btn btn-sm "+(t==="movies"?"btn-primary":"btn-secondary");$("vodSerBtn").className="btn btn-sm "+(t==="series"?"btn-primary":"btn-secondary");vodLoadPlats();vodLoad()}
-function vodDoSearch(){clearTimeout(vodTm);vodTm=setTimeout(()=>{vodPage=1;vodLoad()},350)}
-function vodLoadPlats(){
-  api("/api/platforms?type="+vodCurType).then(d=>{
-    var sel=$("vodPlatFilter");sel.innerHTML='<option value="">All Platforms</option>';
-    Object.entries(d).forEach(e=>sel.innerHTML+='<option value="'+e[0]+'">'+e[0]+' ('+e[1]+')</option>');
-  });
-}
-function vodLoad(){
-  var q=$("vodSearch")?$("vodSearch").value:"";
-  vodCurPlat=$("vodPlatFilter")?$("vodPlatFilter").value:"";
-  var url="/api/library?type="+vodCurType+"&page="+vodPage+"&per_page=60"+(vodCurPlat?"&platform="+encodeURIComponent(vodCurPlat):"")+(q?"&search="+encodeURIComponent(q):"");
-  $("vodGrid").innerHTML='<p style="color:var(--muted);grid-column:1/-1">Loading...</p>';
-  api(url).then(d=>{
-    $("vodCount").textContent=d.total+" title"+(d.total!==1?"s":"");
-    if(!d.items||!d.items.length){$("vodGrid").innerHTML='<p style="color:var(--muted);grid-column:1/-1">No results.</p>';$("vodPag").innerHTML="";return}
-    $("vodGrid").innerHTML=d.items.map(item=>{
-      var cover=item.cover&&item.cover.length>4?'<img src="'+item.cover+'" loading="lazy" onerror="this.style.display=\'none\';this.nextSibling.style.display=\'flex\'">'+'<div style="display:none;width:100%;aspect-ratio:2/3;background:var(--bg3);align-items:center;justify-content:center;font-size:32px">&#127916;</div>':'<div style="width:100%;aspect-ratio:2/3;background:var(--bg3);display:flex;align-items:center;justify-content:center;font-size:32px">&#127916;</div>';
-      var pc=PLAT_COLORS[item.platform];
-      var platHtml=item.platform?'<div class="plat" style="background:'+(pc?pc.bg:'rgba(88,166,255,.12)')+';color:'+(pc?pc.tx:'var(--accent)')+'">'+item.platform+'</div>':'';
-      return'<div class="lib-card">'+cover+'<div class="body"><div class="title" title="'+esc(item.title)+'">'+item.title+'</div><div class="meta">'+(item.year||"")+(item.quality>=1080?' &middot; '+item.quality+'p':'')+'</div>'+platHtml+'</div></div>';
+// ===== PLAYLISTS =====
+function ldPl(){
+  api("/api/playlists").then(d=>{
+    if(!d.length){$("plList").innerHTML='<p style="color:var(--muted)">No playlists yet. Create one above using platform tags.</p>';return}
+    $("plList").innerHTML=d.map(p=>{
+      var badges='';
+      if(p.platform)badges+='<span class="pl-badge" style="background:rgba(88,166,255,.15);color:var(--accent)">'+p.platform+'</span>';
+      if(p.type)badges+='<span class="pl-badge" style="background:rgba(188,140,255,.15);color:var(--purple)">'+p.type+'</span>';
+      if(p.quality_min>0)badges+='<span class="pl-badge" style="background:rgba(63,185,80,.15);color:var(--green)">'+p.quality_min+'p+</span>';
+      return'<div class="pl-card"><div><div class="pl-name">'+p.name+'</div><div class="pl-meta">'+badges+(p.item_count||0)+' items</div></div>'
+        +'<div class="btn-group"><button class="btn btn-sm btn-d" onclick="plDel(\''+p.id+'\')">Delete</button></div></div>';
     }).join("");
-    var tp=Math.ceil(d.total/60),pg="";
-    if(tp>1){
-      if(vodPage>1)pg+='<button class="btn btn-sm btn-secondary" onclick="vodGo('+(vodPage-1)+')">Prev</button>';
-      for(var i=Math.max(1,vodPage-2);i<=Math.min(tp,vodPage+2);i++)pg+='<button class="btn btn-sm '+(i===vodPage?"btn-primary":"btn-secondary")+'" onclick="vodGo('+i+')">'+i+'</button>';
-      if(vodPage<tp)pg+='<button class="btn btn-sm btn-secondary" onclick="vodGo('+(vodPage+1)+')">Next</button>';
-      pg+='<span style="font-size:10px;color:var(--muted)">Page '+vodPage+'/'+tp+'</span>';
-    }
-    $("vodPag").innerHTML=pg;
+  });
+  // Load platforms for dropdown
+  api("/api/platforms?type=movies").then(d=>{
+    var sel=$("plPlat");sel.innerHTML='<option value="">All Platforms</option>';
+    Object.keys(d).forEach(p=>sel.innerHTML+='<option value="'+p+'">'+p+' ('+d[p]+')</option>');
   });
 }
-function vodGo(n){vodPage=n;vodLoad();window.scrollTo(0,0)}
+function plPreview(){
+  var d={type:$("plType").value,platform:$("plPlat").value,quality_min:parseInt($("plQual").value)||0,search:$("plSearch").value};
+  $("plPrev").innerHTML='<p style="color:var(--muted)">Loading preview...</p>';
+  api("/api/playlists/preview",{method:"POST",body:JSON.stringify(d)}).then(r=>{
+    if(!r.preview.length){$("plPrev").innerHTML='<p style="color:var(--muted)">No items match these filters. Try different criteria.</p>';return}
+    $("plPrev").innerHTML='<p style="font-size:11px;color:var(--muted);margin-bottom:8px"><b>'+r.total+'</b> items would be in this playlist (showing first 50):</p>'
+      +'<div class="pv-grid">'+r.preview.map(i=>{
+        var img=i.cover&&i.cover.length>4?'<img src="'+i.cover+'" loading="lazy" onerror="this.style.display=\'none\'">':'';
+        return'<div class="pv-card">'+img+'<div class="t" title="'+esc(i.title)+'">'+i.title+'</div></div>';
+      }).join("")+'</div>';
+  });
+}
+function plCreate(){
+  var name=$("plName").value.trim();if(!name){toast("Enter a playlist name",false);return}
+  var d={name:name,type:$("plType").value,platform:$("plPlat").value,quality_min:parseInt($("plQual").value)||0,search:$("plSearch").value};
+  api("/api/playlists/create",{method:"POST",body:JSON.stringify(d)}).then(r=>{
+    if(r.error){toast(r.error,false);return}
+    toast(r.message);$("plName").value="";$("plPrev").innerHTML="";ldPl();
+  });
+}
+function plDel(id){if(!confirm("Delete this playlist?"))return;api("/api/playlists/delete",{method:"POST",body:JSON.stringify({id:id})}).then(()=>{toast("Deleted");ldPl()})}
+function plRegenAll(){api("/api/playlists/regenerate",{method:"POST"}).then(d=>toast(d.message))}
 
 // ===== CATEGORIES =====
-var catType="vod",catData=[];
-function ldCat(t,el){
-  catType=t;document.querySelectorAll("#catVod,#catSer,#catLive").forEach(x=>x.className="btn btn-sm btn-secondary");if(el)el.className="btn btn-sm btn-primary";
-  $("catList").innerHTML='<p style="color:var(--muted)">Loading...</p>';
-  api("/api/categories/"+t).then(d=>{catData=d;catRender()}).catch(()=>$("catList").innerHTML='<p style="color:var(--red)">Failed</p>');
-}
-function catRender(){
-  var q=$("catQ").value.toLowerCase();
-  var f=catData.filter(c=>!q||c.name.toLowerCase().indexOf(q)>=0);
-  $("catList").innerHTML=f.map(c=>'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)">'
-    +'<input type="checkbox" '+(c.selected?"checked":"")+' onchange="catTog(\''+c.id+'\')" style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer">'
-    +'<span style="font-size:12px;'+(c.selected?"color:#fff;font-weight:600":"color:var(--muted)")+'">'+c.name+'</span>'
-    +'<div style="display:flex;gap:3px;margin-left:auto">'+(c.tags||[]).map(t=>'<span class="cat-tag">'+t+'</span>').join("")+'</div>'
-    +'</div>').join("");
-}
-function catTog(id){var c=catData.find(x=>x.id===id);if(c)c.selected=!c.selected;catRender()}
-function catAll(){catData.forEach(c=>c.selected=true);catRender()}
-function catNone(){catData.forEach(c=>c.selected=false);catRender()}
-function catSave(){
-  var ids=catData.filter(c=>c.selected).map(c=>c.id);
-  var k=catType==="vod"?"vod_category_ids":catType==="series"?"series_category_ids":"live_category_ids";
-  var tags={};catData.forEach(c=>{if(c.tags&&c.tags.length)tags[c.id]=c.tags});
+var caT="vod",caD=[];
+function ldCat(t,el){caT=t;document.querySelectorAll("#cV,#cS,#cL").forEach(x=>x.className="btn btn-sm btn-g");if(el)el.className="btn btn-sm btn-p";
+  $("caList").innerHTML='<p style="color:var(--muted)">Loading...</p>';
+  api("/api/categories/"+t).then(d=>{caD=d;caR()}).catch(()=>$("caList").innerHTML='<p style="color:var(--red)">Failed</p>')}
+function caR(){
+  var q=$("caQ").value.toLowerCase();
+  var f=caD.filter(c=>!q||c.name.toLowerCase().indexOf(q)>=0);
+  $("caList").innerHTML=f.map(c=>'<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><input type="checkbox" '+(c.selected?"checked":"")+' onchange="caTog(\''+c.id+'\')" style="accent-color:var(--accent);width:15px;height:15px;cursor:pointer"><span style="font-size:12px;'+(c.selected?"color:#fff;font-weight:600":"color:var(--muted)")+'">'+c.name+'</span></div>').join("")}
+function caTog(id){var c=caD.find(x=>x.id===id);if(c)c.selected=!c.selected;caR()}
+function caAll(){caD.forEach(c=>c.selected=true);caR()}
+function caNone(){caD.forEach(c=>c.selected=false);caR()}
+function caSave(){
+  var ids=caD.filter(c=>c.selected).map(c=>c.id);
+  var k=caT==="vod"?"vod_category_ids":caT==="series"?"series_category_ids":"live_category_ids";
+  var tags={};caD.forEach(c=>{if(c.tags&&c.tags.length)tags[c.id]=c.tags});
   var b={};b[k]=ids;b["category_tags"]=tags;
-  api("/api/categories/save",{method:"POST",body:JSON.stringify(b)});toast("Saved");
+  api("/api/categories/save",{method:"POST",body:JSON.stringify(b)}).then(()=>toast("Saved"));
 }
 
 // ===== PROVIDERS =====
-function ldProv(){api("/api/providers").then(p=>{var h="";p.forEach(x=>{h+='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center"><div><b>'+x.name+(x.id===0?' <span class="badge badge-b">Primary</span>':"")+'</b><br><span style="font-size:11px;color:var(--muted)">'+x.server+' - '+x.username+'</span></div><div class="btn-group">'+(x.id>0?'<button class="btn btn-sm btn-danger" onclick="delProv('+x.id+',\''+esc(x.name)+'\')">Delete</button>':'')+'</div></div></div>'});$("provList").innerHTML=h||'<p style="color:var(--muted)">None</p>'})}
-function addProv(){var d={name:$("ap-n").value,server:$("ap-s").value,username:$("ap-u").value,password:$("ap-p").value};if(!d.server||!d.username||!d.password){toast("Fill all fields",false);return}api("/api/providers/add",{method:"POST",body:JSON.stringify(d)}).then(()=>{$("addProv").style.display="none";toast("Added");ldProv()})}
-function delProv(id,n){if(!confirm("Delete "+n+"?"))return;api("/api/providers/delete",{method:"POST",body:JSON.stringify({id:id})}).then(()=>{toast("Deleted");ldProv()})}
+function ldProv(){api("/api/providers").then(p=>{$("pList").innerHTML=p.map(x=>'<div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:12px;margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center"><div><b>'+x.name+(x.id===0?' <span class="badge badge-b">Primary</span>':'')+'</b><br><span style="font-size:11px;color:var(--muted)">'+x.server+' - '+x.username+'</span></div>'+(x.id>0?'<button class="btn btn-sm btn-d" onclick="delP('+x.id+',\''+esc(x.name)+'\')">Delete</button>':'')+'</div></div>').join("")||'<p style="color:var(--muted)">None</p>'})}
+function addP(){var d={name:$("ap-n").value,server:$("ap-s").value,username:$("ap-u").value,password:$("ap-p").value};if(!d.server||!d.username||!d.password){toast("Fill all fields",false);return}api("/api/providers/add",{method:"POST",body:JSON.stringify(d)}).then(()=>{$("aP").style.display="none";toast("Added");ldProv()})}
+function delP(id,n){if(!confirm("Delete "+n+"?"))return;api("/api/providers/delete",{method:"POST",body:JSON.stringify({id:id})}).then(()=>{toast("Deleted");ldProv()})}
 
-// ===== HISTORY / LOGS =====
-function ldHist(){api("/api/history").then(d=>{var tb=$("histBody");if(!d.length){tb.innerHTML='<tr><td colspan="6" style="color:var(--muted)">None</td></tr>';return}tb.innerHTML=d.reverse().slice(0,20).map(h=>"<tr><td>"+(h.started_at?new Date(h.started_at).toLocaleString():"-")+"</td><td>"+(h.duration||"-")+"</td><td>"+F(h.new_movies)+"</td><td>"+F(h.new_episodes)+"</td><td>"+F(h.live_channels||h.new_channels)+'</td><td><span class="badge '+(!(h.errors&&h.errors.length)?"badge-g":"badge-r")+'">'+(!(h.errors&&h.errors.length)?"OK":h.errors.length+" err")+"</span></td></tr>").join("")})}
-function ldLogs(){api("/api/logs").then(d=>{var el=$("logOut");el.innerHTML=(d.lines||[]).map(l=>'<div class="'+(l.indexOf("ERROR")>=0?"err":l.indexOf("WARNING")>=0?"warn":l.indexOf("INFO")>=0?"info":"")+'">'+l.replace(/</g,"&lt;").trimEnd()+"</div>").join("");el.scrollTop=el.scrollHeight})}
+// ===== HISTORY/LOGS =====
+function ldHist(){api("/api/history").then(d=>{$("hB").innerHTML=d.length?d.reverse().slice(0,20).map(h=>"<tr><td>"+(h.started_at?new Date(h.started_at).toLocaleString():"-")+"</td><td>"+(h.duration||"-")+"</td><td>"+F(h.new_movies)+"</td><td>"+F(h.new_episodes)+"</td><td>"+F(h.live_channels||h.new_channels)+'</td><td><span class="badge '+(!(h.errors&&h.errors.length)?"badge-g":"badge-r")+'">'+(!(h.errors&&h.errors.length)?"OK":h.errors.length+" err")+"</span></td></tr>").join(""):'<tr><td colspan="6" style="color:var(--muted)">None</td></tr>'})}
+function ldLogs(){api("/api/logs").then(d=>{var el=$("lO");el.innerHTML=(d.lines||[]).map(l=>'<div class="'+(l.indexOf("ERROR")>=0?"err":l.indexOf("WARNING")>=0?"warn":l.indexOf("INFO")>=0?"info":"")+'">'+l.replace(/</g,"&lt;").trimEnd()+"</div>").join("");el.scrollTop=el.scrollHeight})}
 
 // ===== SETTINGS =====
-function ldSt(){api("/api/settings").then(s=>{$("si-tmdb").value=s.tmdb_api_key||"";$("si-jfu").value=s.jellyfin_url||"";$("si-jfk").value=s.jellyfin_api_key||"";$("si-jfa").checked=s.jellyfin_auto_rescan!==false;$("si-st").value=s.scan_time||"03:30";$("si-sf").value=s.scan_frequency||"daily";$("si-se").checked=s.scan_enabled===true;$("si-te").checked=s.tuner_enabled!==false;$("si-dn").value=s.device_name||"IPTV Scanner";$("si-tc").value=s.tuner_count||4})}
-function saveSt(){api("/api/settings",{method:"POST",body:JSON.stringify({tmdb_api_key:$("si-tmdb").value,jellyfin_url:$("si-jfu").value,jellyfin_api_key:$("si-jfk").value,jellyfin_auto_rescan:$("si-jfa").checked,scan_time:$("si-st").value,scan_frequency:$("si-sf").value,scan_enabled:$("si-se").checked,tuner_enabled:$("si-te").checked,device_name:$("si-dn").value,tuner_count:parseInt($("si-tc").value)||4})}).then(()=>toast("Saved"))}
+function ldSt(){api("/api/settings").then(s=>{$("si-t").value=s.tmdb_api_key||"";$("si-ju").value=s.jellyfin_url||"";$("si-jk").value=s.jellyfin_api_key||"";$("si-ja").checked=s.jellyfin_auto_rescan!==false;$("si-st").value=s.scan_time||"03:30";$("si-sf").value=s.scan_frequency||"daily";$("si-se").checked=s.scan_enabled===true;$("si-te").checked=s.tuner_enabled!==false;$("si-dn").value=s.device_name||"IPTV Scanner";$("si-tc").value=s.tuner_count||4})}
+function saveSt(){api("/api/settings",{method:"POST",body:JSON.stringify({tmdb_api_key:$("si-t").value,jellyfin_url:$("si-ju").value,jellyfin_api_key:$("si-jk").value,jellyfin_auto_rescan:$("si-ja").checked,scan_time:$("si-st").value,scan_frequency:$("si-sf").value,scan_enabled:$("si-se").checked,tuner_enabled:$("si-te").checked,device_name:$("si-dn").value,tuner_count:parseInt($("si-tc").value)||4})}).then(()=>toast("Saved"))}
 
-// Init
 poll();setInterval(poll,3000);
 </script>
 </body>
